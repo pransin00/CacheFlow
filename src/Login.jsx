@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
@@ -25,7 +24,7 @@ const Login = () => {
     }
     // Store user id in localStorage for dashboard use
     localStorage.setItem('user_id', data.id);
-    navigate("/dashboard");
+    // navigate("/dashboard"); // Remove this line to prevent skipping OTP
   }
 
   return (
