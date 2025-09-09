@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
-import { sendOTP } from './smsGateway';
 import logo from './assets/CacheFlow_Logo.png';
 
 function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // This function is intentionally left empty as OTP generation is now handled by the backend.
+  // It's kept to avoid breaking references if they exist, but it does nothing.
+  return null;
 }
 
 const OtpLogin = () => {
@@ -74,30 +75,51 @@ const OtpLogin = () => {
       setLoading(false);
       return;
     }
+
+    // Ensure a contact number exists and is not just whitespace
+    if (!data.contact_number || data.contact_number.trim() === '') {
+      setError('No contact number is associated with this account.');
+      setDebugInfo('Login failed - no contact number found for user.');
+      setLoading(false);
+      return;
+    }
     
-    setContactNumber(data.contact_number);
+    const trimmedContactNumber = data.contact_number.trim();
+
+    setContactNumber(trimmedContactNumber);
     setUserId(data.id);
-    setDebugInfo(`Contact number: ${data.contact_number}`);
+    setDebugInfo(`Contact number: ${trimmedContactNumber}`);
     
-    // Generate and send OTP
-    const generatedOtp = generateOTP();
-    setSentOtp(generatedOtp);
-    setTimer(45);
-    
-    console.log('Generated OTP:', generatedOtp);
-    setDebugInfo(`Sending OTP ${generatedOtp} to ${data.contact_number}...`);
-    
+    // Request the backend to generate and send the OTP
     try {
-  const smsResult = await sendOTP([data.contact_number], `Your OTP is: ${generatedOtp}`);
-      setStep('otp');
-      setInfo('OTP sent to your phone.');
-      setDebugInfo(`SMS sent successfully. Response: ${JSON.stringify(smsResult)}`);
-      console.log('SMS gateway response:', smsResult);
+      const response = await fetch('http://localhost:3001/api/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phoneNumbers: [trimmedContactNumber]
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.otp) {
+        setSentOtp(result.otp); // The backend sends the OTP for frontend comparison
+        setTimer(45);
+        setStep('otp');
+        setInfo('OTP sent to your phone.');
+        setDebugInfo(`SMS sent successfully. OTP received for verification.`);
+      } else {
+        setError('Failed to send OTP.');
+        setDebugInfo(result.error || 'An unknown error occurred while sending OTP.');
+        setInfo('');
+      }
     } catch (err) {
-      setError('Failed to send OTP.');
-      setDebugInfo(`SMS failed: ${err.message}`);
+      setError('Failed to connect to the server.');
+      setDebugInfo(`Connection error: ${err.message}`);
       setInfo('');
-      console.error('SMS gateway error:', err);
+      console.error('Server connection error:', err);
     }
     setLoading(false);
   };
@@ -106,17 +128,32 @@ const OtpLogin = () => {
     setError('');
     setInfo('');
     setLoading(true);
-    const generatedOtp = generateOTP();
-    setSentOtp(generatedOtp);
-    setTimer(45);
+
     try {
-  const smsResult = await sendOTP([contactNumber], `Your OTP is: ${generatedOtp}`);
-      setInfo('OTP resent to your phone.');
-      console.log('SMS gateway response:', smsResult);
+      const response = await fetch('http://localhost:3001/api/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phoneNumbers: [contactNumber]
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.otp) {
+        setSentOtp(result.otp); // The backend sends the new OTP
+        setTimer(45); // Reset the timer
+        setInfo('OTP resent to your phone.');
+      } else {
+        setError('Failed to resend OTP.');
+        setInfo('');
+      }
     } catch (err) {
-      setError('Failed to resend OTP.');
+      setError('Failed to connect to the server.');
       setInfo('');
-      console.error('SMS gateway error:', err);
+      console.error('Server connection error:', err);
     }
     setLoading(false);
   };

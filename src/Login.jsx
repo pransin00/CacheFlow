@@ -7,6 +7,7 @@ const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   async function handleLogin(e) {
@@ -24,7 +25,14 @@ const Login = () => {
     }
     // Store user id in localStorage for dashboard use
     localStorage.setItem('user_id', data.id);
-    // navigate("/dashboard"); // Remove this line to prevent skipping OTP
+    // Store phone number for OTP step
+    if (data.phone) {
+      localStorage.setItem('user_phone', data.phone);
+      navigate('/otp-login');
+    } else {
+      setError('No phone number found for user.');
+      return;
+    }
   }
 
   return (
@@ -101,12 +109,19 @@ const Login = () => {
                 <label style={{ display: "block", marginBottom: 7, color: "#222", fontWeight: 600, fontSize: 15 }}>Password</label>
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your Password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     style={{ width: "100%", padding: "13px 44px 13px 16px", borderRadius: 8, border: "1.5px solid #dbeafe", fontSize: 16, background: "#fafdff", fontWeight: 500, outline: "none" }}
                   />
+                  <span
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    style={{ position: "absolute", right: 12, top: 12, cursor: "pointer", fontSize: 20 }}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? "👁️" : "🙈"}
+                  </span>
                   <a href="#" style={{ position: "absolute", right: 44, top: 10, color: "#1976d2", fontSize: 14, textDecoration: "none", fontWeight: 600 }}>Forgot?</a>
                   <span style={{ position: "absolute", right: 14, top: 10, color: "#b3bfcf", fontSize: 20 }}>&#128065;</span>
                 </div>
