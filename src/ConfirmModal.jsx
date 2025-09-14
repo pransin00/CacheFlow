@@ -24,9 +24,11 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
         fontFamily: 'inherit',
       }}>Confirm Transfer</div>
       <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
+        {details.bank && <div><b>Bank:</b> {details.bank}</div>}
         <div><b>Account Number:</b> {details.accountNumber}</div>
         <div><b>Account Name:</b> {details.accountName}</div>
         <div><b>Amount:</b> {details.amount}</div>
+        {details.receiverNumber && <div><b>Receiver's Number:</b> {details.receiverNumber}</div>}
         {details.remarks && <div><b>Remarks:</b> {details.remarks}</div>}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>

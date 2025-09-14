@@ -10,6 +10,7 @@ import viewPng from './assets/view.png';
 import hidePng from './assets/hide.png';
 import Modal from './Modal';
 import FundTransferModal from './FundTransferModal';
+import BankTransferModal from './BankTransferModal';
 
 const SidebarItem = ({ icon, label, active }) => (
   <div style={{
@@ -80,6 +81,7 @@ const Dashboard = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [showFundTransferModal, setShowFundTransferModal] = useState(false);
+  const [showBankTransferModal, setShowBankTransferModal] = useState(false);
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -201,7 +203,6 @@ const Dashboard = () => {
         onClose={() => setShowFundTransferModal(false)}
         onTransferSuccess={() => {
           // Re-fetch transactions after successful transfer
-          // Use the same logic as in useEffect
           (async () => {
             const user_id = localStorage.getItem('user_id');
             if (!user_id) return;
@@ -229,6 +230,14 @@ const Dashboard = () => {
               setTransactions(txs || []);
             }
           })();
+        }}
+      />
+      <BankTransferModal
+        isOpen={showBankTransferModal}
+        onClose={() => setShowBankTransferModal(false)}
+        onConfirm={(data) => {
+          // Placeholder: handle bank transfer logic here
+          setShowBankTransferModal(false);
         }}
       />
       {/* Main Content */}
@@ -356,7 +365,7 @@ const Dashboard = () => {
               <ActionButton label='Pay Bills' icon={<span style={{ fontSize: '2.2vw' }}>&#128179;</span>} />
               <ActionButton label='Withdrawal' icon={<span style={{ fontSize: '2.2vw' }}>&#128184;</span>} />
               {/* Bottom row: Bank Transfer under Fund Transfer */}
-              <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} />
+              <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} onClick={() => setShowBankTransferModal(true)} />
               <div></div>
               <div></div>
             </div>
