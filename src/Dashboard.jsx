@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import logo from './assets/CacheFlow_Logo.png';
 import { supabase } from './supabaseClient';
 import overviewIcon from './assets/overview.png';
@@ -68,9 +69,14 @@ const transactionRowStyle = (amount) => ({
 });
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [filterDate, setFilterDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().slice(0, 10);
+  });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [showFundTransferModal, setShowFundTransferModal] = useState(false);
@@ -94,19 +100,16 @@ const Dashboard = () => {
           .single();
         setUser(userData);
         setAccount(accountData);
-        // Fetch transactions for this account
+        // Fetch transactions for this account and filterDate
         if (accountData && accountData.id) {
-          // Get today's date range in ISO format
-          const today = new Date();
-          // Use local timezone boundaries for today
-          const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-          const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
-          // Convert to ISO string with timezone offset
+          const dateObj = new Date(filterDate);
+          const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
+          const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
           const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
           const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
           const { data: txs } = await supabase
             .from('transactions')
-            .select('id, amount, type, date')
+            .select('id, amount, type_id, date, transaction_types(name)')
             .eq('account_id', accountData.id)
             .gte('date', startIso)
             .lte('date', endIso)
@@ -118,7 +121,7 @@ const Dashboard = () => {
       }
     };
     fetchUserInfo();
-  }, []);
+  }, [filterDate]);
 
   const handleLogout = () => {
     localStorage.removeItem('user_id');
@@ -154,7 +157,6 @@ const Dashboard = () => {
         <div style={{ width: '100%', marginTop: '2vw' }}>
           <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#9776;</span>} label="Overview" active />
           <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" />
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#128100;</span>} label="Profile" />
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ width: '100%', marginBottom: '2vw' }}>
@@ -194,7 +196,41 @@ const Dashboard = () => {
         </div>
       )}
       {/* Fund Transfer Modal */}
-      <FundTransferModal isOpen={showFundTransferModal} onClose={() => setShowFundTransferModal(false)} />
+      <FundTransferModal
+        isOpen={showFundTransferModal}
+        onClose={() => setShowFundTransferModal(false)}
+        onTransferSuccess={() => {
+          // Re-fetch transactions after successful transfer
+          // Use the same logic as in useEffect
+          (async () => {
+            const user_id = localStorage.getItem('user_id');
+            if (!user_id) return;
+            const { data: accountData } = await supabase
+              .from('accounts')
+              .select('id, account_number, balance')
+              .eq('user_id', user_id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            setAccount(accountData);
+            if (accountData && accountData.id) {
+              const dateObj = new Date(filterDate);
+              const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
+              const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
+              const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
+              const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
+              const { data: txs } = await supabase
+                .from('transactions')
+                .select('id, amount, type_id, date, transaction_types(name)')
+                .eq('account_id', accountData.id)
+                .gte('date', startIso)
+                .lte('date', endIso)
+                .order('date', { ascending: false });
+              setTransactions(txs || []);
+            }
+          })();
+        }}
+      />
       {/* Main Content */}
       <div style={{
         flex: 1,
@@ -209,13 +245,46 @@ const Dashboard = () => {
         {/* Top Row: Overview + Account Number */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
           <div style={{ fontWeight: 700, fontSize: '2vw', color: '#222', marginBottom: '2vw', marginTop: '0.5vw' }}>Overview</div>
-          <div style={{ textAlign: 'right', marginTop: '0.5vw' }}>
-            <div style={{ fontSize: '1vw', color: '#1976d2', fontWeight: 500, marginBottom: '0.2vw' }}>
-              {user && user.firstname && user.lastname
-                ? `${user.firstname} ${user.lastname}`
-                : ''}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.8vw', marginTop: '0.5vw' }}>
+            {/* Name and Account Number stacked */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ color: '#1976d2', fontWeight: 500, fontSize: '1.2vw' }}>
+                {user && user.firstname && user.lastname
+                  ? `${user.firstname} ${user.lastname}`
+                  : ''}
+              </span>
+              <span style={{ fontWeight: 700, fontSize: '1.7vw', color: '#222', letterSpacing: '1px', marginTop: '0.2vw' }}>
+                {account ? account.account_number : '1234567890'}
+              </span>
             </div>
-            <div style={{ fontWeight: 700, fontSize: '1.7vw', color: '#222', letterSpacing: '1px' }}>{account ? account.account_number : '1234567890'}</div>
+            {/* Initials Icon - now navigates to profile */}
+            {user && user.firstname && user.lastname && (
+              <span
+                onClick={() => navigate('/profile')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '3.5vw',
+                  height: '3.5vw',
+                  borderRadius: '50%',
+                  background: '#1856c9',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '1.6vw',
+                  textTransform: 'uppercase',
+                  boxShadow: '0 2px 8px rgba(24,86,201,0.15)',
+                  userSelect: 'none',
+                  border: '3px solid #fff',
+                  marginLeft: '0.5vw',
+                  cursor: 'pointer',
+                  transition: 'box-shadow 0.2s',
+                }}
+                title={`${user.firstname} ${user.lastname}`}
+              >
+                {user.firstname[0]}{user.lastname[0]}
+              </span>
+            )}
           </div>
         </div>
         {/* Main Row: Balance + Actions + Transactions */}
@@ -311,23 +380,30 @@ const Dashboard = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1vw' }}>
               <div style={{ fontWeight: 700, fontSize: '1.3vw', color: '#222' }}>Transactions</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5vw' }}>
-                <input type='date' style={{ border: '1px solid #e6edfa', borderRadius: '0.4vw', padding: '0.3vw 0.7vw', fontSize: '0.9vw', background: '#fafdff' }} />
-                <span style={{ fontSize: '1.1vw', color: '#1976d2', cursor: 'pointer' }}>&#8594;</span>
+                <input
+                  type='date'
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                  style={{ border: '1px solid #e6edfa', borderRadius: '0.4vw', padding: '0.3vw 0.7vw', fontSize: '0.9vw', background: '#fafdff' }}
+                />
               </div>
             </div>
             <div style={{ width: '100%' }}>
               {transactions.length === 0 && <div style={{ color: '#888', fontSize: '1vw' }}>No transactions found.</div>}
-              {transactions.map((tx) => (
-                <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{tx.type || 'Transaction'}</div>
-                    <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
+              {transactions.map((tx) => {
+                const typeLabel = tx.transaction_types?.name || 'Transaction';
+                return (
+                  <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{typeLabel}</div>
+                      <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
+                      {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
-                    {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

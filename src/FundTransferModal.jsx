@@ -58,7 +58,7 @@ const SuccessModal = ({ isOpen, transaction, onClose }) => (
   </Modal>
 );
 
-const FundTransferModal = ({ isOpen, onClose }) => {
+const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -279,15 +279,8 @@ const FundTransferModal = ({ isOpen, onClose }) => {
       return false;
     }
     // Get type_id for 'fund transfer'
-    let typeId = null;
-    const { data: typeRow } = await supabase
-      .from('transaction_types')
-      .select('id')
-      .eq('name', 'fund transfer')
-      .single();
-    if (typeRow && typeRow.id) {
-      typeId = typeRow.id;
-    }
+    // Always use type_id = 1 for fund transfer
+    let typeId = 1;
     // Insert transaction for sender and get the inserted record
     const { data: senderTx, error: txErr } = await supabase
       .from('transactions')
@@ -445,7 +438,11 @@ const FundTransferModal = ({ isOpen, onClose }) => {
         error={otpError}
       />
       <ProcessingModal isOpen={pendingTransfer} />
-  <SuccessModal isOpen={showSuccess} transaction={successTx} onClose={() => { setShowSuccess(false); onClose(); }} />
+  <SuccessModal isOpen={showSuccess} transaction={successTx} onClose={() => {
+    setShowSuccess(false);
+    onClose();
+    if (onTransferSuccess) onTransferSuccess();
+  }} />
     </>
   );
 };
