@@ -25,12 +25,15 @@ const Login = () => {
     }
     // Store user id in localStorage for dashboard use
     localStorage.setItem('user_id', data.id);
-    // Store phone number for OTP step
-    if (data.phone) {
+    // Store contact_number or phone for OTP step
+    if (data.contact_number) {
+      localStorage.setItem('user_phone', data.contact_number);
+      navigate('/otp-login');
+    } else if (data.phone) {
       localStorage.setItem('user_phone', data.phone);
       navigate('/otp-login');
     } else {
-      setError('No phone number found for user.');
+      setError('No contact number found for user.');
       return;
     }
   }

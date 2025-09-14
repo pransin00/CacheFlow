@@ -7,6 +7,8 @@ import userIcon from './assets/user.png';
 import logoutIcon from './assets/logout.png';
 import viewPng from './assets/view.png';
 import hidePng from './assets/hide.png';
+import Modal from './Modal';
+import FundTransferModal from './FundTransferModal';
 
 const SidebarItem = ({ icon, label, active }) => (
   <div style={{
@@ -29,8 +31,8 @@ const SidebarItem = ({ icon, label, active }) => (
   </div>
 );
 
-const ActionButton = ({ label, icon }) => (
-  <div style={{
+const ActionButton = ({ label, icon, onClick }) => (
+  <div onClick={onClick} style={{
     background: '#fafdff',
     borderRadius: '1vw',
     boxShadow: '0 4px 16px rgba(10,60,255,0.08)',
@@ -68,41 +70,49 @@ const transactionRowStyle = (amount) => ({
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [account, setAccount] = useState(null);
-  const [transactions, setTransactions] = useState([
-    // Demo data for screenshot
-    { name: 'Young Lifters Program', date: '29–Aug–2025', amount: -50000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: 10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: -10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: 10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: -10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: 10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: -10000 },
-    { name: 'Oluwabern Jamin', date: '06.Mar.2023 - 09:39', amount: 10000 },
-  ]);
+  const [transactions, setTransactions] = useState([]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const [showFundTransferModal, setShowFundTransferModal] = useState(false);
 
   useEffect(() => {
     const fetchUserInfo = async () => {
       const user_id = localStorage.getItem('user_id');
-      console.log('Dashboard: user_id from localStorage:', user_id);
       if (!user_id) return;
       try {
-        const { data: userData, error: userError } = await supabase
+        const { data: userData } = await supabase
           .from('users')
           .select('firstname, lastname')
           .eq('id', user_id)
           .single();
-        console.log('Dashboard: userData from Supabase:', userData, 'error:', userError);
-        const { data: accountData, error: accError } = await supabase
+        const { data: accountData } = await supabase
           .from('accounts')
-          .select('account_number, balance')
+          .select('id, account_number, balance')
           .eq('user_id', user_id)
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
         setUser(userData);
         setAccount(accountData);
+        // Fetch transactions for this account
+        if (accountData && accountData.id) {
+          // Get today's date range in ISO format
+          const today = new Date();
+          // Use local timezone boundaries for today
+          const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+          const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+          // Convert to ISO string with timezone offset
+          const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
+          const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
+          const { data: txs } = await supabase
+            .from('transactions')
+            .select('id, amount, type, date')
+            .eq('account_id', accountData.id)
+            .gte('date', startIso)
+            .lte('date', endIso)
+            .order('date', { ascending: false });
+          setTransactions(txs || []);
+        }
       } catch (error) {
         console.error('Error fetching user/account info:', error);
       }
@@ -183,6 +193,8 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {/* Fund Transfer Modal */}
+      <FundTransferModal isOpen={showFundTransferModal} onClose={() => setShowFundTransferModal(false)} />
       {/* Main Content */}
       <div style={{
         flex: 1,
@@ -259,10 +271,25 @@ const Dashboard = () => {
                 />
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '2vw', margin: '2vw auto 0 auto', width: '32vw', maxWidth: 500, minWidth: 320, justifyContent: 'center' }}>
-              <ActionButton label='Fund Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128640;</span>} />
+            {/* Action Buttons aligned with balance */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gridTemplateRows: '1fr 1fr',
+              gap: '2vw',
+              margin: '2vw auto 0 auto',
+              width: 'max-content',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              {/* Top row: Fund Transfer, Pay Bills, Withdrawal */}
+              <ActionButton label='Fund Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128640;</span>} onClick={() => setShowFundTransferModal(true)} />
               <ActionButton label='Pay Bills' icon={<span style={{ fontSize: '2.2vw' }}>&#128179;</span>} />
               <ActionButton label='Withdrawal' icon={<span style={{ fontSize: '2.2vw' }}>&#128184;</span>} />
+              {/* Bottom row: Bank Transfer under Fund Transfer */}
+              <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} />
+              <div></div>
+              <div></div>
             </div>
           </div>
           {/* Right: Transactions Panel */}
@@ -289,11 +316,12 @@ const Dashboard = () => {
               </div>
             </div>
             <div style={{ width: '100%' }}>
-              {transactions.map((tx, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
+              {transactions.length === 0 && <div style={{ color: '#888', fontSize: '1vw' }}>No transactions found.</div>}
+              {transactions.map((tx) => (
+                <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
                   <div>
-                    <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{tx.name}</div>
-                    <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date}</div>
+                    <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{tx.type || 'Transaction'}</div>
+                    <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
                     {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
