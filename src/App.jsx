@@ -4,6 +4,7 @@ import LandingPage from './LandingPage';
 import OtpLogin from './OtpLogin';
 import Dashboard from './Dashboard';
 import Profile from './Profile';
+import Maps from './Maps';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/login" element={<OtpLogin />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/maps" element={<Maps />} />
       </Routes>
     </Router>
   );

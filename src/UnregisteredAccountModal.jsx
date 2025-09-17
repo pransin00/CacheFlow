@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal';
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
+const UnregisteredAccountModal = ({ isOpen, onClose, onContinue, accountNumber }) => (
   <Modal isOpen={isOpen} onClose={onClose}>
     <div style={{
       padding: '2vw 2vw 1vw 2vw',
@@ -18,18 +18,16 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
       <div style={{
         fontWeight: 700,
         fontSize: '1.5vw',
-        color: '#1856c9',
+        color: '#e53935',
         marginBottom: '1vw',
         alignSelf: 'flex-start',
         fontFamily: 'inherit',
-      }}>Confirm Transfer</div>
+      }}>Account Not Registered</div>
       <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
-        {details?.bank && <div><b>Bank:</b> {details.bank}</div>}
-        <div><b>Account Number:</b> {details?.accountNumber || 'N/A'}</div>
-        <div><b>Account Name:</b> {details?.accountName || <span style={{ color: '#e53935' }}>Unregistered</span>}</div>
-        <div><b>Amount:</b> {details?.amount || 'N/A'}</div>
-        {details?.receiverNumber && <div><b>Receiver's Number:</b> {details.receiverNumber}</div>}
-        {details?.remarks && <div><b>Remarks:</b> {details.remarks}</div>}
+        <div><b>Account Number:</b> {accountNumber}</div>
+        <div style={{ marginTop: '1vw' }}>
+          The account number is not registered. Would you still like to continue?
+        </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
         <button type="button" onClick={onClose} style={{
@@ -44,7 +42,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
           fontFamily: 'inherit',
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
         }}>Cancel</button>
-        <button type="button" onClick={onConfirm} style={{
+        <button type="button" onClick={onContinue} style={{
           background: '#1856c9',
           color: '#fff',
           border: 'none',
@@ -55,10 +53,10 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
           cursor: 'pointer',
           fontFamily: 'inherit',
           boxShadow: '0 2px 6px rgba(24,86,201,0.10)',
-        }}>Confirm</button>
+        }}>Continue Anyway</button>
       </div>
     </div>
   </Modal>
 );
 
-export default ConfirmModal;
+export default UnregisteredAccountModal;

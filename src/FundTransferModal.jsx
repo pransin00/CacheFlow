@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import { supabase } from './supabaseClient';
 import ConfirmModal from './ConfirmModal';
+import UnregisteredAccountModal from './UnregisteredAccountModal';
 import OtpModal from './OtpModal';
 
 const ProcessingModal = ({ isOpen }) => (
@@ -60,10 +61,8 @@ const SuccessModal = ({ isOpen, transaction, onClose }) => (
 
 const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [accountNumber, setAccountNumber] = useState('');
-  const [accountName, setAccountName] = useState('');
   const [remarks, setRemarks] = useState('');
   const [amount, setAmount] = useState('');
-  const [loadingName, setLoadingName] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,77 +74,89 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successTx, setSuccessTx] = useState(null);
   const [pendingDetails, setPendingDetails] = useState(null);
-
-  useEffect(() => {
-    const fetchAccountName = async () => {
-      if (accountNumber.replace(/\s/g, '').length < 8) {
-        setAccountName('');
-        return;
-      }
-      setLoadingName(true);
-      const { data, error } = await supabase
-        .from('accounts')
-        .select('user_id')
-        .eq('account_number', accountNumber.replace(/\s/g, ''))
-        .single();
-      if (data && data.user_id) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('firstname, lastname')
-          .eq('id', data.user_id)
-          .single();
-        if (userData) {
-          setAccountName(`${userData.firstname} ${userData.lastname}`);
-        } else {
-          setAccountName('');
-        }
-      } else {
-        setAccountName('');
-      }
-      setLoadingName(false);
-    };
-    if (accountNumber) fetchAccountName();
-  }, [accountNumber]);
+  const [recipientInitials, setRecipientInitials] = useState('');
+  const [showUnregisteredModal, setShowUnregisteredModal] = useState(false);
+  const [unregisteredDetails, setUnregisteredDetails] = useState(null);
 
   // Get sender info from localStorage
   const senderUserId = localStorage.getItem('user_id');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    handleTransfer();
+  };
+
+  const handleTransfer = async () => {
     setError('');
-    setSuccess('');
-    // Validation
     if (!accountNumber || !amount || isNaN(Number(amount.replace(/,/g, '')))) {
       setError('Please enter a valid account number and amount.');
       return;
     }
-    if (!accountName) {
-      setError('Recipient account not found.');
+
+    const senderUserId = localStorage.getItem('user_id');
+    if (!senderUserId) {
+      setError('Please log in again.');
       return;
     }
     if (!senderUserId) {
       setError('Sender not found.');
       return;
     }
-    // Check sender balance before showing confirm/OTP
+    // Check if recipient account exists and get masked name
+    const { data: recipientData, error: recipientErr } = await supabase
+      .from('accounts')
+      .select('user_id')
+      .eq('account_number', accountNumber.replace(/\s/g, ''))
+      .single();
+
+    let maskedName = '';
+    let recipientExists = !!recipientData && !recipientErr;
+    if (recipientExists) {
+      // Get recipient's name for masking
+      const { data: recipientUser } = await supabase
+        .from('users')
+        .select('firstname, lastname')
+        .eq('id', recipientData.user_id)
+        .single();
+      if (recipientUser) {
+        const firstInitial = recipientUser.firstname.charAt(0);
+        const lastInitial = recipientUser.lastname.charAt(0);
+        maskedName = `${firstInitial}****${lastInitial}`;
+      }
+    }
+
+    // Check sender balance
     const { data: senderAccount, error: senderErr } = await supabase
       .from('accounts')
       .select('balance')
       .eq('user_id', senderUserId)
       .single();
+
     if (!senderAccount || senderErr) {
-      setError('Sender account not found.');
+      setError('Error checking account balance.');
       return;
     }
+
     const transferAmount = parseFloat(amount.replace(/,/g, ''));
     if (senderAccount.balance < transferAmount) {
       setError('Insufficient balance.');
       return;
     }
+
+    if (!recipientExists) {
+      setUnregisteredDetails({
+        accountNumber: accountNumber.replace(/\s/g, ''),
+        amount: transferAmount,
+        remarks,
+      });
+      setShowUnregisteredModal(true);
+      return;
+    }
+
     setPendingDetails({
-      accountNumber,
-      accountName,
-      amount,
+      accountNumber: accountNumber.replace(/\s/g, ''),
+      maskedName,
+      amount: transferAmount,
       remarks,
     });
     setShowConfirm(true);
@@ -319,13 +330,32 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     setSuccess('Transfer successful!');
     setLoading(false);
     setAccountNumber('');
-    setAccountName('');
     setRemarks('');
     setAmount('');
   return senderTx;
   };
 
   return (
+  <>
+      {/* Unregistered Account Modal */}
+      {showUnregisteredModal && (
+        <UnregisteredAccountModal
+          isOpen={showUnregisteredModal}
+          accountNumber={unregisteredDetails?.accountNumber}
+          onClose={() => setShowUnregisteredModal(false)}
+          onContinue={() => {
+            setShowUnregisteredModal(false);
+            setPendingDetails({
+              accountNumber: unregisteredDetails?.accountNumber,
+              maskedName: '',
+              amount: unregisteredDetails?.amount,
+              remarks: unregisteredDetails?.remarks,
+              unregistered: true
+            });
+            setShowConfirm(true);
+          }}
+        />
+      )}
     <>
       {/* Main Fund Transfer Modal (hidden during processing/success) */}
       <Modal isOpen={isOpen && !pendingTransfer && !showSuccess} onClose={onClose}>
@@ -363,17 +393,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
             </div>
-            <div style={{ marginBottom: '1.3vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Name</label>
-              <input
-                type="text"
-                placeholder="Enter account name"
-                value={loadingName ? 'Loading...' : accountName}
-                readOnly
-                disabled
-                style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#f5f5f5', color: '#222', boxSizing: 'border-box' }}
-              />
-            </div>
+
             <div style={{ marginBottom: '2vw' }}>
               <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Amount</label>
               <input
@@ -425,11 +445,17 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
           </form>
         </div>
       </Modal>
+      {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={showConfirm && !pendingTransfer && !showSuccess}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleConfirm}
-        details={pendingDetails || { accountNumber, accountName, amount, remarks }}
+        details={{
+          accountNumber: pendingDetails?.accountNumber,
+          accountName: pendingDetails?.maskedName,
+          amount: pendingDetails?.amount,
+          remarks: pendingDetails?.remarks
+        }}
       />
       <OtpModal
         isOpen={showOtp && !pendingTransfer && !showSuccess}
@@ -443,6 +469,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     onClose();
     if (onTransferSuccess) onTransferSuccess();
   }} />
+    </>
     </>
   );
 };

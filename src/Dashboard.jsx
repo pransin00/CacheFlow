@@ -11,23 +11,36 @@ import hidePng from './assets/hide.png';
 import Modal from './Modal';
 import FundTransferModal from './FundTransferModal';
 import BankTransferModal from './BankTransferModal';
+import BillPaymentModal from './BillPaymentModal';
 
-const SidebarItem = ({ icon, label, active }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1vw',
-    padding: '0.8vw 2vw',
-    fontWeight: active ? 700 : 500,
-    fontSize: '1.1vw',
-    color: active ? '#0a3cff' : '#888',
-    background: active ? '#e6edfa' : 'none',
-    borderRadius: '0.7vw',
-    marginBottom: '0.7vw',
-    cursor: 'pointer',
-    width: '100%',
-    boxSizing: 'border-box',
-  }}>
+const SidebarItem = ({ icon, label, active, onClick }) => (
+  <div 
+    onClick={onClick} 
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1vw',
+      padding: '0.8vw 2vw',
+      fontWeight: active ? 700 : 500,
+      fontSize: '1.1vw',
+      color: active ? '#0a3cff' : '#888',
+      background: active ? '#e6edfa' : 'none',
+      borderRadius: '0.7vw',
+      marginBottom: '0.7vw',
+      cursor: onClick ? 'pointer' : 'default',
+      width: '100%',
+      boxSizing: 'border-box',
+      transition: 'background-color 0.2s, color 0.2s',
+      userSelect: 'none',
+      outline: 'none',
+      '&:hover': {
+        background: active ? '#e6edfa' : '#f5f7fa',
+      }
+    }}
+  >
     <span style={{ fontSize: '1.3vw' }}>{icon}</span>
     {label}
   </div>
@@ -82,6 +95,8 @@ const Dashboard = () => {
   const [showBalance, setShowBalance] = useState(true);
   const [showFundTransferModal, setShowFundTransferModal] = useState(false);
   const [showBankTransferModal, setShowBankTransferModal] = useState(false);
+  const [showBillPaymentModal, setShowBillPaymentModal] = useState(false);
+  // BillPaymentModal now uses only static billers. No billers state or fetch needed.
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -157,8 +172,9 @@ const Dashboard = () => {
       }}>
         <img src={logo} alt="CacheFlow Logo" style={{ width: '10vw', margin: '0 0 2vw 2vw', alignSelf: 'flex-start' }} />
         <div style={{ width: '100%', marginTop: '2vw' }}>
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#9776;</span>} label="Overview" active />
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" />
+          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#9776;</span>} label="Overview" active onClick={() => navigate('/dashboard')} />
+          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" onClick={() => navigate('/transactions')} />
+          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#128205;</span>} label="Maps" onClick={() => navigate('/maps')} />
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ width: '100%', marginBottom: '2vw' }}>
@@ -362,8 +378,13 @@ const Dashboard = () => {
             }}>
               {/* Top row: Fund Transfer, Pay Bills, Withdrawal */}
               <ActionButton label='Fund Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128640;</span>} onClick={() => setShowFundTransferModal(true)} />
-              <ActionButton label='Pay Bills' icon={<span style={{ fontSize: '2.2vw' }}>&#128179;</span>} />
+              <ActionButton label='Pay Bills' icon={<span style={{ fontSize: '2.2vw' }}>&#128179;</span>} onClick={() => setShowBillPaymentModal(true)} />
               <ActionButton label='Withdrawal' icon={<span style={{ fontSize: '2.2vw' }}>&#128184;</span>} />
+      {/* Bill Payment Modal */}
+      <BillPaymentModal
+        isOpen={showBillPaymentModal}
+        onClose={() => setShowBillPaymentModal(false)}
+      />
               {/* Bottom row: Bank Transfer under Fund Transfer */}
               <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} onClick={() => setShowBankTransferModal(true)} />
               <div></div>

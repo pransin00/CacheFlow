@@ -2,23 +2,33 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import logo from './assets/CacheFlow_Logo.png';
+import PinManageModal from './PinManageModal';
 
 const SidebarItem = ({ icon, label, active, onClick }) => (
-  <div onClick={onClick} style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1vw',
-    padding: '0.8vw 2vw',
-    fontWeight: active ? 700 : 500,
-    fontSize: '1.1vw',
-    color: active ? '#0a3cff' : '#888',
-    background: active ? '#e6edfa' : 'none',
-    borderRadius: '0.7vw',
-    marginBottom: '0.7vw',
-    cursor: 'pointer',
-    width: '100%',
-    boxSizing: 'border-box',
-  }}>
+  <div 
+    onClick={onClick} 
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1vw',
+      padding: '0.8vw 2vw',
+      fontWeight: active ? 700 : 500,
+      fontSize: '1.1vw',
+      color: active ? '#0a3cff' : '#888',
+      background: active ? '#e6edfa' : 'none',
+      borderRadius: '0.7vw',
+      marginBottom: '0.7vw',
+      cursor: onClick ? 'pointer' : 'default',
+      width: '100%',
+      boxSizing: 'border-box',
+      transition: 'background-color 0.2s, color 0.2s',
+      userSelect: 'none',
+      outline: 'none',
+    }}
+  >
     <span style={{ fontSize: '1.3vw' }}>{icon}</span>
     {label}
   </div>
@@ -27,6 +37,7 @@ const SidebarItem = ({ icon, label, active, onClick }) => (
 const Profile = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -34,7 +45,7 @@ const Profile = () => {
       if (!user_id) return;
       const { data } = await supabase
         .from('users')
-        .select('firstname, middlename, lastname, username, contact_number')
+        .select('firstname, middlename, lastname, username, contact_number, pin')
         .eq('id', user_id)
         .single();
       setUser(data);
@@ -70,7 +81,8 @@ const Profile = () => {
         <img src={logo} alt="CacheFlow Logo" style={{ width: '10vw', margin: '0 0 2vw 2vw', alignSelf: 'flex-start' }} />
         <div style={{ width: '100%', marginTop: '2vw' }}>
           <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#9776;</span>} label="Overview" active={false} onClick={() => navigate('/dashboard')} />
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" />
+          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" onClick={() => navigate('/transactions')} />
+          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#128205;</span>} label="Maps" onClick={() => navigate('/maps')} />
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ width: '100%', marginBottom: '2vw' }}>
@@ -146,23 +158,78 @@ const Profile = () => {
             <div style={{ color: '#1856c9', fontSize: '0.9vw', fontWeight: 500, marginBottom: 2, marginTop: 12 }}>Phone Number</div>
             <div style={{ fontWeight: 700, fontSize: '1.1vw', marginBottom: 8 }}>{user?.contact_number || ''}</div>
             <hr style={{ border: 'none', borderTop: '1.5px solid #e6edfa', margin: '1vw 0' }} />
+            
+            {/* PIN Management Section */}
+            <div style={{ marginTop: '1vw' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '0.5vw'
+              }}>
+                <div>
+                  <div style={{ color: '#1856c9', fontSize: '0.9vw', fontWeight: 500, marginBottom: '0.5vw' }}>
+                    PIN Code
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: '1.1vw', letterSpacing: '0.2em' }}>
+                    {user?.pin ? '••••' : 'Not set'}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowPinModal(true)}
+                  style={{
+                    background: 'transparent',
+                    border: '1.5px solid #1856c9',
+                    color: '#1856c9',
+                    borderRadius: '0.5vw',
+                    padding: '0.5vw 1vw',
+                    fontWeight: 600,
+                    fontSize: '0.9vw',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5vw'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2vw' }}>🔒</span>
+                  {user?.pin ? 'Change PIN' : 'Set PIN'}
+                </button>
+              </div>
+              <div style={{ color: '#666', fontSize: '0.8vw', marginTop: '0.5vw' }}>
+                Your PIN is used for cardless withdrawals and secure transactions
+              </div>
+            </div>
+            
+            <hr style={{ border: 'none', borderTop: '1.5px solid #e6edfa', margin: '1vw 0' }} />
           </div>
-          <button style={{
-            background: '#1856c9',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '0.5vw',
-            padding: '1vw 2vw',
-            fontWeight: 600,
-            fontSize: '1.1vw',
-            cursor: 'pointer',
-            marginTop: '1vw',
-            width: '100%',
-            maxWidth: 260,
-            boxShadow: '0 2px 8px rgba(24,86,201,0.10)',
-          }}>Reset Password</button>
+          
+          <div style={{ display: 'flex', gap: '1vw', width: '100%', maxWidth: 260 }}>
+            <button style={{
+              background: '#1856c9',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '0.5vw',
+              padding: '1vw 2vw',
+              fontWeight: 600,
+              fontSize: '1.1vw',
+              cursor: 'pointer',
+              width: '100%',
+              boxShadow: '0 2px 8px rgba(24,86,201,0.10)',
+            }}>Reset Password</button>
+          </div>
         </div>
       </div>
+
+      {/* PIN Management Modal */}
+      {showPinModal && (
+        <PinManageModal
+          currentPin={user?.pin}
+          onClose={() => setShowPinModal(false)}
+          onSuccess={(newPin) => {
+            setUser(prev => ({ ...prev, pin: newPin }));
+          }}
+        />
+      )}
     </div>
   );
 };
