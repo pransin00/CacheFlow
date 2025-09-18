@@ -67,6 +67,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   const [showOtp, setShowOtp] = useState(false);
   const [sentOtp, setSentOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false); // loading before OTP
   // Get sender info from localStorage
   const senderUserId = localStorage.getItem('user_id');
 
@@ -105,6 +106,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   const handleConfirm = async () => {
     setShowConfirm(false);
     setOtpError('');
+    setOtpLoading(true); // show loading spinner before OTP
     try {
       // Get sender's phone/contact_number from users table
       const { data: userData, error: userErr } = await supabase
@@ -113,11 +115,13 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         .eq('id', senderUserId)
         .single();
       if (!userData || userErr) {
+        setOtpLoading(false);
         setError('No phone number found for sender.');
         return;
       }
       const senderPhone = userData.contact_number;
       if (!senderPhone) {
+        setOtpLoading(false);
         setError('No phone number found for sender.');
         return;
       }
@@ -127,6 +131,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         body: JSON.stringify({ phoneNumbers: [senderPhone] })
       });
       const result = await response.json();
+      setOtpLoading(false); // hide loading spinner
       if (response.ok && result.otp) {
         setSentOtp(result.otp);
         setShowOtp(true);
@@ -134,6 +139,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         setError('Failed to send OTP.');
       }
     } catch (err) {
+      setOtpLoading(false);
       setError('Failed to connect to OTP server.');
     }
   };
@@ -149,8 +155,8 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       setOtpError('Invalid OTP. Please try again.');
       return;
     }
-    setShowOtp(false);
-    setProcessing(true);
+  setShowOtp(false);
+  setProcessing(true);
     // --- original transfer logic below ---
     // Fetch sender account
     const senderAccount = await fetchSenderAccount();
@@ -194,7 +200,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         type: typeName, // Save the type name
         date: new Date().toISOString(),
         description: `${typeName} to ${bank} - ${accountNumber} (${accountName}), receiver: ${receiverNumber}, fee: ₱15`,
-        transaction_status: 'Success',
+  transaction_status: 'Successfully Completed',
         bank: bank,
         recipient_account_number: accountNumber,
         remaining_balance: newBalance, // Save the new balance
@@ -216,8 +222,10 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       date: tx.date,
       reference: tx.id,
     });
-    // Call onConfirm to update dashboard (refresh)
-    if (onConfirm) onConfirm({ refresh: true });
+    // Auto-refresh dashboard after success
+    setTimeout(() => {
+      if (onConfirm) onConfirm({ refresh: true });
+    }, 1200);
     // Reset fields after success
     setBank('');
     setAccountNumber('');
@@ -429,6 +437,10 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         }}
       />
       {/* OTP Modal */}
+      {/* Show processing spinner before OTP modal */}
+      {otpLoading && (
+        <ProcessingModal isOpen={true} />
+      )}
       <OtpModal
         isOpen={showOtp}
         onClose={() => setShowOtp(false)}

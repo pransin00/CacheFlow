@@ -26,7 +26,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
       <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
         {details?.bank && <div><b>Bank:</b> {details.bank}</div>}
         <div><b>Account Number:</b> {details?.accountNumber || 'N/A'}</div>
-        <div><b>Account Name:</b> {details?.accountName || <span style={{ color: '#e53935' }}>Unregistered</span>}</div>
+  {/* Removed Account Name for paybills */}
         <div><b>Amount:</b> {details?.amount || 'N/A'}</div>
         {details?.receiverNumber && <div><b>Receiver's Number:</b> {details.receiverNumber}</div>}
         {details?.remarks && <div><b>Remarks:</b> {details.remarks}</div>}

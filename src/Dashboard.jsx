@@ -87,6 +87,7 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
     return today.toISOString().slice(0, 10);
@@ -124,13 +125,17 @@ const Dashboard = () => {
           const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
           const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
           const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
-          const { data: txs } = await supabase
+          let query = supabase
             .from('transactions')
             .select('id, amount, type_id, date, transaction_types(name)')
             .eq('account_id', accountData.id)
             .gte('date', startIso)
             .lte('date', endIso)
             .order('date', { ascending: false });
+          if (categoryFilter) {
+            query = query.eq('transaction_types.name', categoryFilter);
+          }
+          const { data: txs } = await query;
           setTransactions(txs || []);
         }
       } catch (error) {
@@ -138,7 +143,7 @@ const Dashboard = () => {
       }
     };
     fetchUserInfo();
-  }, [filterDate]);
+  }, [filterDate, categoryFilter]);
 
   const handleLogout = () => {
     localStorage.removeItem('user_id');
@@ -384,6 +389,40 @@ const Dashboard = () => {
       <BillPaymentModal
         isOpen={showBillPaymentModal}
         onClose={() => setShowBillPaymentModal(false)}
+        onSubmit={() => {
+          // Refresh transactions after bill payment
+          (async () => {
+            const user_id = localStorage.getItem('user_id');
+            if (!user_id) return;
+            const { data: accountData } = await supabase
+              .from('accounts')
+              .select('id, account_number, balance')
+              .eq('user_id', user_id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            setAccount(accountData);
+            if (accountData && accountData.id) {
+              const dateObj = new Date(filterDate);
+              const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
+              const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
+              const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
+              const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
+              let query = supabase
+                .from('transactions')
+                .select('id, amount, type_id, date, transaction_types(name)')
+                .eq('account_id', accountData.id)
+                .gte('date', startIso)
+                .lte('date', endIso)
+                .order('date', { ascending: false });
+              if (categoryFilter) {
+                query = query.eq('transaction_types.name', categoryFilter);
+              }
+              const { data: txs } = await query;
+              setTransactions(txs || []);
+            }
+          })();
+        }}
       />
               {/* Bottom row: Bank Transfer under Fund Transfer */}
               <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} onClick={() => setShowBankTransferModal(true)} />
@@ -416,24 +455,34 @@ const Dashboard = () => {
                   onChange={e => setFilterDate(e.target.value)}
                   style={{ border: '1px solid #e6edfa', borderRadius: '0.4vw', padding: '0.3vw 0.7vw', fontSize: '0.9vw', background: '#fafdff' }}
                 />
+                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ marginLeft: '1vw', padding: '0.3vw 0.7vw', borderRadius: '0.4vw', fontSize: '0.9vw', background: '#fafdff', border: '1px solid #e6edfa' }}>
+                  <option value=''>All</option>
+                  <option value='Fund Transfer'>Fund Transfer</option>
+                  <option value='Bank Transfer'>Bank Transfer</option>
+                  <option value='Bill Payment'>Bill Payment</option>
+                  <option value='Cardless Withdrawal'>Cardless Withdrawal</option>
+                </select>
               </div>
             </div>
             <div style={{ width: '100%' }}>
-              {transactions.length === 0 && <div style={{ color: '#888', fontSize: '1vw' }}>No transactions found.</div>}
-              {transactions.map((tx) => {
-                const typeLabel = tx.transaction_types?.name || 'Transaction';
-                return (
-                  <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{typeLabel}</div>
-                      <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
+              {transactions.length === 0 ? (
+                <div style={{ color: '#888', fontSize: '1vw' }}>No transactions found.</div>
+              ) : (
+                transactions.map((tx) => {
+                  const typeLabel = tx.transaction_types?.name || 'Transaction';
+                  return (
+                    <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{typeLabel}</div>
+                        <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
+                        {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
-                      {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

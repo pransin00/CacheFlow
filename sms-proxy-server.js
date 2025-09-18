@@ -30,7 +30,7 @@ app.post('/api/send-otp', async (req, res) => {
     const response = await fetch('https://api.sms-gate.app/3rdparty/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + Buffer.from('DCM8CD:vk_nl23nyjvvzl').toString('base64'),
+        'Authorization': 'Basic ' + Buffer.from('RO6_TY:95cyzcbmykggtb').toString('base64'),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

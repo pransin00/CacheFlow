@@ -60,6 +60,10 @@ const SuccessModal = ({ isOpen, transaction, onClose }) => (
 );
 
 const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
+  // Clear success message when modal is closed or opened for new transfer
+  React.useEffect(() => {
+    if (!isOpen) setSuccess('');
+  }, [isOpen]);
   const [accountNumber, setAccountNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [amount, setAmount] = useState('');
@@ -164,9 +168,10 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
 
   // After user confirms, send OTP to the sender's phone (logged-in user) and show OTP modal
   const handleConfirm = async () => {
-    setShowConfirm(false);
-    setOtpError('');
-    try {
+  setShowConfirm(false);
+  setOtpError('');
+  setLoading(true); // Start loading before OTP request
+  try {
       // Get sender's account using logged-in user_id
       const { data: senderAccount, error: senderErr } = await supabase
         .from('accounts')
@@ -201,6 +206,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         body: JSON.stringify({ phoneNumbers: [senderPhone] })
       });
       const result = await response.json();
+      setLoading(false); // Stop loading after response
       if (response.ok && result.otp) {
         setSentOtp(result.otp);
         setShowOtp(true);
@@ -208,6 +214,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         setError('Failed to send OTP.');
       }
     } catch (err) {
+      setLoading(false); // Stop loading on error
       setError('Failed to connect to OTP server.');
     }
   };
@@ -300,7 +307,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         amount: -transferAmount,
         description: remarks,
         date: new Date().toISOString(),
-        transaction_status: 'completed',
+  transaction_status: 'Successfully Completed',
         recipient_account_number: accountNumber.replace(/\s/g, ''),
         type: 'fund transfer',
         type_id: typeId,
@@ -321,7 +328,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         amount: transferAmount,
         description: remarks,
         date: new Date().toISOString(),
-        transaction_status: 'completed',
+  transaction_status: 'Successfully Completed',
         recipient_account_number: senderAccount.account_number,
         type: 'fund transfer',
         type_id: typeId,
@@ -381,7 +388,8 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
           }}>Fund Transfer</div>
           <form style={{ width: '100%' }} onSubmit={handleSubmit}>
             {error && <div style={{ color: 'red', marginBottom: '1vw', fontWeight: 500 }}>{error}</div>}
-            {success && <div style={{ color: 'green', marginBottom: '1vw', fontWeight: 500 }}>{success}</div>}
+              {/* Only show success message if not in success modal */}
+              {success && !showSuccess && <div style={{ color: 'green', marginBottom: '1vw', fontWeight: 500 }}>{success}</div>}
             <div style={{ marginBottom: '1.3vw' }}>
               <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Number</label>
               <input
@@ -457,6 +465,10 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
           remarks: pendingDetails?.remarks
         }}
       />
+      {/* Show loading spinner before OTP modal if loading */}
+      {loading && !showOtp && !pendingTransfer && !showSuccess && (
+        <ProcessingModal isOpen={true} />
+      )}
       <OtpModal
         isOpen={showOtp && !pendingTransfer && !showSuccess}
         onClose={() => setShowOtp(false)}
@@ -465,10 +477,11 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       />
       <ProcessingModal isOpen={pendingTransfer} />
   <SuccessModal isOpen={showSuccess} transaction={successTx} onClose={() => {
-    setShowSuccess(false);
-    onClose();
-    if (onTransferSuccess) onTransferSuccess();
-  }} />
+      setShowSuccess(false);
+      setSuccess(''); // Clear success message when closing success modal
+      onClose();
+      if (onTransferSuccess) onTransferSuccess();
+    }} />
     </>
     </>
   );
