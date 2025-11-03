@@ -92,8 +92,9 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
         background: 'white',
         padding: '2rem',
         borderRadius: '12px',
-        width: '90%',
-        maxWidth: '400px',
+        width: '88%',
+        maxWidth: '620px',
+        boxSizing: 'border-box'
       }}>
         <h2 style={{ margin: '0 0 1.5rem 0', color: '#0a3cff' }}>
           {mode === 'verify' ? 'Verify Current PIN' : 'Change PIN'}

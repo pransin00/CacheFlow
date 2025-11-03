@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import OtpModal from './OtpModal';
@@ -19,12 +19,20 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
   const [showProcessing, setShowProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptTx, setReceiptTx] = useState(null);
+  const [senderAccount, setSenderAccount] = useState(null);
+  const [senderBalance, setSenderBalance] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     if (!biller || !amount || !reference) return;
+    // prevent submitting when insufficient funds
+    const payAmount = parseFloat(amount);
+    if (senderBalance != null && !isNaN(payAmount) && payAmount > senderBalance) {
+      setError('Insufficient balance');
+      return;
+    }
     setPendingDetails({
       biller,
       reference,
@@ -32,6 +40,51 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
     });
     setShowConfirm(true);
   };
+
+  const resetFields = () => {
+    setBiller('');
+    setReference('');
+    setAmount('');
+    setError('');
+    setSuccess('');
+    setShowConfirm(false);
+    setShowOtp(false);
+    setSentOtp('');
+    setOtpError('');
+    setPendingDetails(null);
+    setShowProcessing(false);
+    setShowReceipt(false);
+    setReceiptTx(null);
+  };
+
+  useEffect(() => {
+    // fetch sender account and balance when modal opens
+    const fetchAccount = async () => {
+      try {
+        const user_id = localStorage.getItem('user_id');
+        if (!user_id) return;
+        const { data: accountData, error: accountErr } = await supabase
+          .from('accounts')
+          .select('id, balance, account_number')
+          .eq('user_id', user_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (accountErr) return;
+        setSenderAccount(accountData || null);
+        setSenderBalance(accountData?.balance ?? null);
+      } catch (err) {
+        // ignore fetch errors for now
+      }
+    };
+    if (isOpen) fetchAccount();
+    else {
+      // reset balance when modal closes
+      setSenderAccount(null);
+      setSenderBalance(null);
+      setError('');
+    }
+  }, [isOpen]);
 
   const handleConfirm = async () => {
     setShowConfirm(false);
@@ -142,6 +195,11 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
     }
   };
 
+  // compute amount validity and insufficiency for disabling submit and showing messages
+  const amtVal = parseFloat(amount || '0');
+  const amountValid = amount && !isNaN(amtVal) && amtVal > 0;
+  const insufficient = senderBalance !== null && amountValid && amtVal > senderBalance;
+
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose}>
@@ -195,15 +253,80 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
             </div>
             <div style={{ marginBottom: '1.7rem' }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 10, fontSize: '1.05rem', color: '#222' }}>Account Number/Reference Number</label>
-              <input type="text" placeholder="00 00 00 00 00" value={reference} onChange={e => setReference(e.target.value)} required style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }} />
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                placeholder="00000000"
+                value={reference}
+                onChange={e => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  setReference(digits);
+                }}
+                onKeyDown={(e) => {
+                  const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
+                  if (allowed.includes(e.key)) return;
+                  if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                required
+                style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }}
+              />
             </div>
             <div style={{ marginBottom: '2.7rem' }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 10, fontSize: '1.05rem', color: '#222' }}>Amount</label>
-              <input type="number" placeholder="100,000" min="1" value={amount} onChange={e => setAmount(e.target.value)} required style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }} />
+              <input
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]{0,2}"
+                placeholder="0.00"
+                value={amount}
+                onChange={e => {
+                  // allow only digits and one decimal point, limit to 2 decimal places
+                  let v = e.target.value.replace(/[^0-9.]/g, '');
+                  const firstDot = v.indexOf('.');
+                  if (firstDot !== -1) {
+                    v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+                    const parts = v.split('.');
+                    parts[1] = (parts[1] || '').slice(0, 2);
+                    v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
+                  }
+                  setAmount(v);
+                }}
+                onKeyDown={(e) => {
+                  const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
+                  if (allowed.includes(e.key)) return;
+                  if (e.key === '.') {
+                    // allow dot only if not already present
+                    if (amount.includes('.')) e.preventDefault();
+                    return;
+                  }
+                  if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                required
+                style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }}
+              />
+              {/* realtime insufficient balance warning (match FundTransfer style) */}
+              {senderBalance != null && amount && (() => {
+                const amt = parseFloat(amount);
+                if (!isNaN(amt) && amt > senderBalance) {
+                  return <div style={{ color: '#e53935', marginTop: 8, fontWeight: 500 }}>Insufficient balance — Current: ₱{senderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>;
+                }
+                return null;
+              })()}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1.5rem', marginTop: '2.2rem' }}>
-              <button type="button" onClick={onClose} style={{ background: '#E5E7EB', color: '#222', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s' }}>Cancel</button>
-              <button type="submit" disabled={loading || submitting} style={{ background: '#1751C5', color: '#fff', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: loading || submitting ? 'not-allowed' : 'pointer', opacity: loading || submitting ? 0.7 : 1, fontFamily: 'inherit', transition: 'background 0.2s' }}>{submitting ? 'Processing...' : 'Confirm'}</button>
+              <button type="button" onClick={() => { resetFields(); onClose(); }} style={{ background: '#E5E7EB', color: '#222', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s' }}>Cancel</button>
+              <button
+                type="submit"
+                disabled={loading || submitting || !amountValid || insufficient}
+                style={{ background: '#1751C5', color: '#fff', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: loading || submitting ? 'not-allowed' : 'pointer', opacity: loading || submitting ? 0.7 : 1, fontFamily: 'inherit', transition: 'background 0.2s' }}
+              >
+                {submitting ? 'Processing...' : 'Confirm'}
+              </button>
             </div>
           </form>
         </div>

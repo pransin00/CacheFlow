@@ -47,8 +47,15 @@ const SuccessModal = ({ isOpen, transaction, onClose }) => (
         zIndex: 1001
       }}>&times;</button>
       <div style={{ fontWeight: 700, fontSize: '2vw', color: '#43a047', marginBottom: '1vw', textAlign: 'center' }}>Transfer Successful!</div>
-      <div style={{ marginBottom: '1vw', color: '#222', fontWeight: 500, textAlign: 'center' }}>
-        <div><b>To:</b> {transaction?.recipient_account_number}</div>
+        <div style={{ marginBottom: '1vw', color: '#222', fontWeight: 500, textAlign: 'center' }}>
+        <div>
+          <b>To:</b>{' '}
+          {transaction?.recipient_initials ? (
+            <span>{transaction.recipient_initials} — {transaction.recipient_account_number}</span>
+          ) : (
+            <span>{transaction?.recipient_account_number}</span>
+          )}
+        </div>
         <div><b>Amount:</b> ₱{Math.abs(transaction?.amount)?.toLocaleString()}</div>
         <div><b>Date:</b> {transaction?.date ? new Date(transaction.date).toLocaleString() : ''}</div>
         {transaction?.description && <div><b>Remarks:</b> {transaction.description}</div>}
@@ -67,6 +74,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [accountNumber, setAccountNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [amount, setAmount] = useState('');
+  const [senderBalance, setSenderBalance] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,9 +93,44 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   // Get sender info from localStorage
   const senderUserId = localStorage.getItem('user_id');
 
+  // Fetch sender balance when modal opens so we can show realtime insufficient balance feedback
+  React.useEffect(() => {
+    const fetchBalance = async () => {
+      if (!isOpen) return;
+      if (!senderUserId) return;
+      try {
+        const { data: senderAcc } = await supabase
+          .from('accounts')
+          .select('balance')
+          .eq('user_id', senderUserId)
+          .single();
+        if (senderAcc && senderAcc.balance !== undefined) setSenderBalance(senderAcc.balance);
+        else setSenderBalance(null);
+      } catch (err) {
+        setSenderBalance(null);
+      }
+    };
+    fetchBalance();
+  }, [isOpen, senderUserId]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     handleTransfer();
+  };
+
+  const resetFields = () => {
+    setAccountNumber('');
+    setRemarks('');
+    setAmount('');
+    setError('');
+    setSuccess('');
+    setShowConfirm(false);
+    setShowOtp(false);
+    setSentOtp('');
+    setOtpError('');
+    setPendingDetails(null);
+    setShowUnregisteredModal(false);
+    setUnregisteredDetails(null);
   };
 
   const handleTransfer = async () => {
@@ -125,7 +168,8 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       if (recipientUser) {
         const firstInitial = recipientUser.firstname.charAt(0);
         const lastInitial = recipientUser.lastname.charAt(0);
-        maskedName = `${firstInitial}****${lastInitial}`;
+        // show masked initials like: I*** R**
+        maskedName = `${firstInitial}*** ${lastInitial}**`;
       }
     }
 
@@ -339,8 +383,15 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     setAccountNumber('');
     setRemarks('');
     setAmount('');
-  return senderTx;
+  // attach masked recipient initials to the returned tx so the success modal can display it
+  const resultTx = { ...senderTx, recipient_initials: pendingDetails?.maskedName || '' };
+  return resultTx;
   };
+
+  // compute amount validity and insufficiency for disabling submit and showing messages
+  const amtVal = parseFloat(amount || '0');
+  const amountValid = amount && !isNaN(amtVal) && amtVal > 0;
+  const insufficient = senderBalance !== null && amountValid && amtVal > senderBalance;
 
   return (
   <>
@@ -394,9 +445,29 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
               <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Number</label>
               <input
                 type="text"
-                placeholder="00 00 00 00 00"
+                inputMode="numeric"
+                pattern="\d*"
+                placeholder="00000000"
                 value={accountNumber}
-                onChange={e => setAccountNumber(e.target.value)}
+                maxLength={8}
+                onChange={e => {
+                  // Allow only digits (strip letters and symbols) and limit to 8 characters
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setAccountNumber(digits);
+                }}
+                onKeyDown={(e) => {
+                  // allow control keys: backspace, tab, arrows, delete
+                  const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
+                  if (allowed.includes(e.key)) return;
+                  // Prevent any non-digit key
+                  if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent entering more than 8 digits via key presses
+                  if (/^[0-9]$/.test(e.key) && accountNumber.length >= 8) {
+                    e.preventDefault();
+                  }
+                }}
                 disabled={loading}
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
@@ -406,12 +477,35 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
               <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Amount</label>
               <input
                 type="text"
-                placeholder="100,000"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]{0,2}"
+                placeholder="0.00"
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={e => {
+                  // allow only digits and one decimal point, limit to 2 decimal places
+                  let v = e.target.value.replace(/[^0-9.]/g, '');
+                  const firstDot = v.indexOf('.');
+                  if (firstDot !== -1) {
+                    // remove other dots
+                    v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+                    // limit decimals to 2
+                    const parts = v.split('.');
+                    parts[1] = (parts[1] || '').slice(0, 2);
+                    v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
+                  }
+                  setAmount(v);
+                }}
                 disabled={loading}
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
+              {/* realtime insufficient balance warning */}
+              {senderBalance !== null && amount && (() => {
+                const amt = parseFloat(amount);
+                if (!isNaN(amt) && amt > senderBalance) {
+                  return <div style={{ color: '#e53935', marginTop: '0.5vw', fontSize: '0.9vw' }}>Insufficient balance — Current: ₱{senderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>;
+                }
+                return null;
+              })()}
             </div>
             <div style={{ marginBottom: '1.3vw' }}>
               <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Remarks</label>
@@ -425,7 +519,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
               />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1vw' }}>
-              <button type="button" onClick={onClose} disabled={loading} style={{
+              <button type="button" onClick={() => { resetFields(); onClose(); }} disabled={loading} style={{
                 background: '#e0e0e0',
                 color: '#222',
                 border: 'none',
@@ -437,7 +531,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
               }}>Cancel</button>
-              <button type="submit" disabled={loading || pendingTransfer} style={{
+              <button type="submit" disabled={loading || pendingTransfer || !amountValid || insufficient} style={{
                 background: '#1856c9',
                 color: '#fff',
                 border: 'none',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { supabase } from './supabaseClient';
 import ConfirmModal from './ConfirmModal';
@@ -20,8 +20,8 @@ const SuccessModal = ({ isOpen, details, onClose }) => (
   <Modal isOpen={isOpen} onClose={onClose}>
     <div style={{
       padding: '2.5vw 2.5vw 2vw 2.5vw',
-      minWidth: 380,
-      maxWidth: 420,
+      minWidth: 520,
+      maxWidth: 720,
       width: '100%',
       borderRadius: '1.5vw',
       background: '#fff',
@@ -84,10 +84,24 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
     return data;
   };
 
+  const [senderBalance, setSenderBalance] = useState(null);
+
+  useEffect(() => {
+    // fetch sender balance when modal opens
+    const fetchBalance = async () => {
+      if (!isOpen) return;
+      const acc = await fetchSenderAccount();
+      if (acc && acc.balance !== undefined) setSenderBalance(acc.balance);
+      else setSenderBalance(null);
+    };
+    fetchBalance();
+    if (!isOpen) setSenderBalance(null);
+  }, [isOpen]);
+
   // Show confirmation modal before OTP/processing
   const handleTransfer = async () => {
     setError('');
-    if (!bank || !accountNumber || !accountName || !amount || !receiverNumber) {
+    if (!bank || !accountNumber || !accountName || !amount) {
       setError('Please fill in all fields.');
       return;
     }
@@ -199,7 +213,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         type_id: 2, // 2 = Bank Transfer
         type: typeName, // Save the type name
         date: new Date().toISOString(),
-        description: `${typeName} to ${bank} - ${accountNumber} (${accountName}), receiver: ${receiverNumber}, fee: ₱15`,
+        description: `${typeName} to ${bank} - ${accountNumber} (${accountName}), fee: ₱15`,
   transaction_status: 'Successfully Completed',
         bank: bank,
         recipient_account_number: accountNumber,
@@ -227,11 +241,10 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       if (onConfirm) onConfirm({ refresh: true });
     }, 1200);
     // Reset fields after success
-    setBank('');
-    setAccountNumber('');
-    setAccountName('');
-    setAmount('');
-    setReceiverNumber('');
+  setBank('');
+  setAccountNumber('');
+  setAccountName('');
+  setAmount('');
   };
   const [bank, setBank] = useState('');
   const bankOptions = [
@@ -270,15 +283,35 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   const accountNumberLength = bankAccountLengths[bank] || 20;
   const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
-  const [receiverNumber, setReceiverNumber] = useState('');
+  // receiverNumber removed per request
+
+  // compute amount validity and insufficiency (include ₱15 fee)
+  const amtVal = parseFloat(amount || '0');
+  const amountValid = amount && !isNaN(amtVal) && amtVal > 0;
+  const insufficient = senderBalance !== null && amountValid && (amtVal + 15) > senderBalance;
+
+  const resetFields = () => {
+    setBank('');
+    setAccountNumber('');
+    setAccountName('');
+    setAmount('');
+    setError('');
+    setSuccess(false);
+    setSuccessDetails(null);
+    setShowConfirm(false);
+    setShowOtp(false);
+    setSentOtp('');
+    setOtpError('');
+    setSenderBalance(null);
+  };
 
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose}>
         <div style={{
           padding: '2.5vw 2.5vw 2vw 2.5vw',
-          minWidth: 380,
-          maxWidth: 420,
+          minWidth: 520,
+          maxWidth: 720,
           width: '100%',
           borderRadius: '1.5vw',
           background: '#fff',
@@ -297,103 +330,132 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
           }}>Bank Transfer</div>
           {error && <div style={{ color: '#e53935', fontSize: '1vw', marginBottom: '1vw', textAlign: 'center' }}>{error}</div>}
     <form style={{ width: '100%' }} onSubmit={e => { e.preventDefault(); handleTransfer(); }}>
-            <div style={{ marginBottom: '1.3vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Bank</label>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <select
-                  value={bank}
-                  onChange={e => setBank(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '1vw 2.5vw 1vw 1vw', // extra right padding for icon
-                    border: '1.5px solid #d6d6d6',
-                    borderRadius: '0.7vw',
-                    fontSize: '1.1vw',
-                    marginTop: '0.3vw',
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                    background: '#fff',
-                    color: '#222',
-                    boxSizing: 'border-box',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                  }}
-                >
-                  {bankOptions.map((option, idx) => (
-                    <option key={idx} value={option} disabled={option === ''} hidden={option === ''}>
-                      {option === '' ? 'Select a bank' : option}
-                    </option>
-                  ))}
-                </select>
-                {/* Custom dropdown arrow */}
-                <span style={{
-                  pointerEvents: 'none',
-                  position: 'absolute',
-                  right: '1.2vw',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: '1.3vw',
-                  color: '#888',
-                  zIndex: 2,
-                }}>
-                  ▼
-                </span>
-              </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.3vw', width: '100%' }}>
+        {/* Bank (left) */}
+        <div>
+          <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Bank</label>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <select
+              value={bank}
+              onChange={e => setBank(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '1vw 2.5vw 1vw 1vw',
+                border: '1.5px solid #d6d6d6',
+                borderRadius: '0.7vw',
+                fontSize: '1.1vw',
+                marginTop: '0.3vw',
+                outline: 'none',
+                fontFamily: 'inherit',
+                background: '#fff',
+                color: '#222',
+                boxSizing: 'border-box',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none',
+              }}
+            >
+              {bankOptions.map((option, idx) => (
+                <option key={idx} value={option} disabled={option === ''} hidden={option === ''}>
+                  {option === '' ? 'Select a bank' : option}
+                </option>
+              ))}
+            </select>
+            <span style={{
+              pointerEvents: 'none',
+              position: 'absolute',
+              right: '1.2vw',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: '1.3vw',
+              color: '#888',
+              zIndex: 2,
+            }}>
+              ▼
+            </span>
+          </div>
+        </div>
+
+        {/* Account Name (right) */}
+        <div>
+          <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Name</label>
+          <input
+            type="text"
+            placeholder="Enter account name"
+            value={accountName}
+            onChange={e => {
+              const v = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+              setAccountName(v);
+            }}
+            style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {/* Account Number (left) */}
+        <div>
+          <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Number</label>
+          <input
+            type="text"
+            placeholder={bank ? `Enter ${accountNumberLength}-digit account number` : 'Select a bank first'}
+            value={accountNumber}
+            maxLength={accountNumberLength}
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              setAccountNumber(val.slice(0, accountNumberLength));
+            }}
+            style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
+            disabled={!bank}
+          />
+          {bank && accountNumber && accountNumber.length !== accountNumberLength && (
+            <div style={{ color: '#e53935', fontSize: '0.9vw', marginTop: '0.3vw' }}>
+              Account number must be exactly {accountNumberLength} digits.
             </div>
-            <div style={{ marginBottom: '1.3vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Number</label>
-              <input
-                type="text"
-                placeholder={bank ? `Enter ${accountNumberLength}-digit account number` : 'Select a bank first'}
-                value={accountNumber}
-                maxLength={accountNumberLength}
-                onChange={e => {
-                  // Only allow numbers
-                  const val = e.target.value.replace(/\D/g, '');
-                  setAccountNumber(val.slice(0, accountNumberLength));
-                }}
-                style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
-                disabled={!bank}
-              />
-              {bank && accountNumber && accountNumber.length !== accountNumberLength && (
-                <div style={{ color: '#e53935', fontSize: '0.9vw', marginTop: '0.3vw' }}>
-                  Account number must be exactly {accountNumberLength} digits.
-                </div>
-              )}
-            </div>
-            <div style={{ marginBottom: '1.3vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Account Name</label>
-              <input
-                type="text"
-                placeholder="Enter account name"
-                value={accountName}
-                onChange={e => setAccountName(e.target.value)}
-                style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
-              />
-            </div>
-            <div style={{ marginBottom: '1.3vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Amount</label>
-              <input
-                type="text"
-                placeholder="100,000"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
-              />
-            </div>
-            <div style={{ marginBottom: '2vw' }}>
-              <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Receiver's Number</label>
-              <input
-                type="text"
-                placeholder="100,000"
-                value={receiverNumber}
-                onChange={e => setReceiverNumber(e.target.value)}
-                style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
-              />
-            </div>
+          )}
+        </div>
+
+        {/* Amount (right) */}
+        <div>
+          <label style={{ fontWeight: 500, fontSize: '1vw', color: '#222', marginBottom: '0.5vw', display: 'block', fontFamily: 'inherit' }}>Amount</label>
+          <input
+            type="text"
+            placeholder="0.00"
+            inputMode="decimal"
+            value={amount}
+            onChange={e => {
+              let v = e.target.value.replace(/[^0-9.]/g, '');
+              const firstDot = v.indexOf('.');
+              if (firstDot !== -1) {
+                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+                const parts = v.split('.');
+                parts[1] = (parts[1] || '').slice(0, 2);
+                v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
+              }
+              setAmount(v);
+            }}
+            onKeyDown={(e) => {
+              const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
+              if (allowed.includes(e.key)) return;
+              if (e.key === '.') {
+                if (amount.includes('.')) e.preventDefault();
+                return;
+              }
+              if (!/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
+            style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
+          />
+          {senderBalance !== null && amount && (() => {
+            const amt = parseFloat(amount);
+            if (!isNaN(amt) && (amt + 15) > senderBalance) {
+              return <div style={{ color: '#e53935', marginTop: '0.35vw', fontSize: '0.8vw', fontWeight: 500 }}>Insufficient balance for this transfer (including ₱15 fee) — Current: ₱{senderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>;
+            }
+            return null;
+          })()}
+        </div>
+      </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1vw' }}>
-              <button type="button" onClick={onClose} style={{
+              <button type="button" onClick={() => { resetFields(); onClose(); }} style={{
                 background: '#e0e0e0',
                 color: '#222',
                 border: 'none',
@@ -407,6 +469,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
               }}>Cancel</button>
               <button
                 type="submit"
+                disabled={processing || otpLoading || !amountValid || insufficient || !accountName || accountNumber.length !== accountNumberLength || !bank}
                 style={{
                 background: '#1856c9',
                 color: '#fff',
@@ -415,10 +478,13 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
                 padding: '1vw 3vw',
                 fontWeight: 600,
                 fontSize: '1.1vw',
-                cursor: 'pointer',
+                cursor: processing || otpLoading ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit',
-                boxShadow: '0 2px 6px rgba(24,86,201,0.10)'
-              }}>Confirm</button>
+                boxShadow: '0 2px 6px rgba(24,86,201,0.10)',
+                opacity: processing || otpLoading || !amountValid || insufficient ? 0.7 : 1,
+              }}>
+                Confirm
+              </button>
             </div>
           </form>
         </div>
@@ -433,7 +499,6 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
           accountNumber,
           accountName,
           amount,
-          receiverNumber,
         }}
       />
       {/* OTP Modal */}

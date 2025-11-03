@@ -5,6 +5,7 @@ import { divIcon } from 'leaflet';
 import logo from './assets/CacheFlow_Logo.png';
 import logoutIcon from './assets/logout.png';
 import CardlessWithdrawalModal from './CardlessWithdrawalModal.jsx';
+import { locations } from './locations';
 
 const SidebarItem = ({ icon, label, active, onClick }) => (
   <div 
@@ -41,49 +42,7 @@ const Maps = () => {
 
   const [selectedAtm, setSelectedAtm] = useState(null);
 
-  // List of ATM/branch locations in Nasugbu
-  const locations = [
-    {
-      id: 1,
-      name: "Nasugbu Main Branch",
-      type: "Branch",
-      status: "Open",
-      position: [14.0702, 120.6290],
-      address: "J.P. Laurel Street, Nasugbu, Batangas",
-      hours: "9:00 AM - 4:00 PM",
-      hasCardless: true
-    },
-    {
-      id: 2,
-      name: "Nasugbu Market ATM",
-      type: "ATM",
-      status: "Open 24/7",
-      position: [14.0715, 120.6298],
-      address: "Public Market Area, Nasugbu, Batangas",
-      hours: "24/7",
-      hasCardless: true
-    },
-    {
-      id: 3,
-      name: "Wawa Branch",
-      type: "Branch",
-      status: "Open",
-      position: [14.0760, 120.6310],
-      address: "Wawa Road, Nasugbu, Batangas",
-      hours: "9:00 AM - 3:00 PM",
-      hasCardless: false
-    },
-    {
-      id: 4,
-      name: "Central Plaza ATM",
-      type: "ATM",
-      status: "Open 24/7",
-      position: [14.0698, 120.6285],
-      address: "Central Plaza, Nasugbu, Batangas",
-      hours: "24/7",
-      hasCardless: true
-    }
-  ];
+  // locations imported from src/locations.js
 
   return (
     <div style={{

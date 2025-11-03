@@ -12,6 +12,7 @@ import Modal from './Modal';
 import FundTransferModal from './FundTransferModal';
 import BankTransferModal from './BankTransferModal';
 import BillPaymentModal from './BillPaymentModal';
+import CardlessWithdrawalModal from './CardlessWithdrawalModal';
 
 const SidebarItem = ({ icon, label, active, onClick }) => (
   <div 
@@ -87,7 +88,6 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState('');
   const [filterDate, setFilterDate] = useState(() => {
     const today = new Date();
     return today.toISOString().slice(0, 10);
@@ -97,6 +97,8 @@ const Dashboard = () => {
   const [showFundTransferModal, setShowFundTransferModal] = useState(false);
   const [showBankTransferModal, setShowBankTransferModal] = useState(false);
   const [showBillPaymentModal, setShowBillPaymentModal] = useState(false);
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [withdrawalAtmName, setWithdrawalAtmName] = useState('');
   // BillPaymentModal now uses only static billers. No billers state or fetch needed.
 
   useEffect(() => {
@@ -104,46 +106,83 @@ const Dashboard = () => {
       const user_id = localStorage.getItem('user_id');
       if (!user_id) return;
       try {
-        const { data: userData } = await supabase
+        const { data: userData, error: userErr } = await supabase
           .from('users')
           .select('firstname, lastname')
           .eq('id', user_id)
           .single();
-        const { data: accountData } = await supabase
+        if (userErr) console.error('Supabase users select error:', userErr);
+
+        const { data: accountData, error: accErr } = await supabase
           .from('accounts')
           .select('id, account_number, balance')
           .eq('user_id', user_id)
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
-        setUser(userData);
-        setAccount(accountData);
+        if (accErr) console.error('Supabase accounts select error:', accErr);
+
+        setUser(userData || null);
+        setAccount(accountData || null);
         // Fetch transactions for this account and filterDate
         if (accountData && accountData.id) {
-          const dateObj = new Date(filterDate);
-          const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
-          const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
-          const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
-          const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
-          let query = supabase
-            .from('transactions')
-            .select('id, amount, type_id, date, transaction_types(name)')
-            .eq('account_id', accountData.id)
-            .gte('date', startIso)
-            .lte('date', endIso)
-            .order('date', { ascending: false });
-          if (categoryFilter) {
-            query = query.eq('transaction_types.name', categoryFilter);
-          }
-          const { data: txs } = await query;
-          setTransactions(txs || []);
+          await fetchTransactions(accountData.id);
+        } else {
+          setTransactions([]);
         }
       } catch (error) {
         console.error('Error fetching user/account info:', error);
       }
     };
     fetchUserInfo();
-  }, [filterDate, categoryFilter]);
+  }, [filterDate]);
+
+  // fetchTransactions moved out so it can be re-used by listeners
+  const fetchTransactions = async (accountIdParam) => {
+    try {
+      const user_id = localStorage.getItem('user_id');
+      // allow explicit account id param (passed) or fallback to current state
+      const accountId = accountIdParam || (account && account.id);
+      if (!accountId) {
+        console.debug('fetchTransactions: no account id');
+        setTransactions([]);
+        return;
+      }
+      const dateObj = new Date(filterDate);
+      const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
+      const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
+      const startIso = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString();
+      const endIso = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString();
+      console.debug('Fetching transactions for account', accountId, startIso, endIso);
+      const { data: txs, error } = await supabase
+        .from('transactions')
+        .select('id, amount, type_id, date, transaction_types(name)')
+        .eq('account_id', accountId)
+        .gte('date', startIso)
+        .lte('date', endIso)
+        .order('date', { ascending: false });
+      if (error) {
+        console.error('Supabase transactions select error:', error);
+        setTransactions([]);
+        return;
+      }
+      console.debug('Fetched transactions:', txs);
+      setTransactions(txs || []);
+    } catch (err) {
+      console.error('fetchTransactions error:', err);
+      setTransactions([]);
+    }
+  };
+
+  // listen for global refresh events so dashboard transactions update immediately
+  useEffect(() => {
+    const onRefresh = () => {
+      console.debug('transactions:refresh received on Dashboard');
+      fetchTransactions();
+    };
+    window.addEventListener('transactions:refresh', onRefresh);
+    return () => window.removeEventListener('transactions:refresh', onRefresh);
+  }, [account, filterDate]);
 
   const handleLogout = () => {
     localStorage.removeItem('user_id');
@@ -384,7 +423,7 @@ const Dashboard = () => {
               {/* Top row: Fund Transfer, Pay Bills, Withdrawal */}
               <ActionButton label='Fund Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128640;</span>} onClick={() => setShowFundTransferModal(true)} />
               <ActionButton label='Pay Bills' icon={<span style={{ fontSize: '2.2vw' }}>&#128179;</span>} onClick={() => setShowBillPaymentModal(true)} />
-              <ActionButton label='Withdrawal' icon={<span style={{ fontSize: '2.2vw' }}>&#128184;</span>} />
+              <ActionButton label='Withdrawal' icon={<span style={{ fontSize: '2.2vw' }}>&#128184;</span>} onClick={() => { setWithdrawalAtmName('Nasugbu Main Branch'); setShowWithdrawalModal(true); }} />
       {/* Bill Payment Modal */}
       <BillPaymentModal
         isOpen={showBillPaymentModal}
@@ -402,7 +441,7 @@ const Dashboard = () => {
               .limit(1)
               .single();
             setAccount(accountData);
-            if (accountData && accountData.id) {
+              if (accountData && accountData.id) {
               const dateObj = new Date(filterDate);
               const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
               const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59, 999);
@@ -415,15 +454,22 @@ const Dashboard = () => {
                 .gte('date', startIso)
                 .lte('date', endIso)
                 .order('date', { ascending: false });
-              if (categoryFilter) {
-                query = query.eq('transaction_types.name', categoryFilter);
-              }
               const { data: txs } = await query;
               setTransactions(txs || []);
             }
           })();
         }}
       />
+      {/* Cardless Withdrawal Modal from Dashboard button (shows name instead of map) */}
+      {showWithdrawalModal && (
+        <CardlessWithdrawalModal
+          atmName={withdrawalAtmName}
+          onClose={() => { setShowWithdrawalModal(false); setWithdrawalAtmName(''); }}
+          onGenerate={() => {
+            // optional: handle generated code
+          }}
+        />
+      )}
               {/* Bottom row: Bank Transfer under Fund Transfer */}
               <ActionButton label='Bank Transfer' icon={<span style={{ fontSize: '2.2vw' }}>&#128176;</span>} onClick={() => setShowBankTransferModal(true)} />
               <div></div>
@@ -445,39 +491,36 @@ const Dashboard = () => {
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
+            // make the whole transactions card static/sticky within the dashboard
+            position: 'sticky',
+            top: '2.5vw',
+            alignSelf: 'flex-start',
+            zIndex: 2,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1vw' }}>
-              <div style={{ fontWeight: 700, fontSize: '1.3vw', color: '#222' }}>Transactions</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5vw' }}>
-                <input
-                  type='date'
-                  value={filterDate}
-                  onChange={e => setFilterDate(e.target.value)}
-                  style={{ border: '1px solid #e6edfa', borderRadius: '0.4vw', padding: '0.3vw 0.7vw', fontSize: '0.9vw', background: '#fafdff' }}
-                />
-                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ marginLeft: '1vw', padding: '0.3vw 0.7vw', borderRadius: '0.4vw', fontSize: '0.9vw', background: '#fafdff', border: '1px solid #e6edfa' }}>
-                  <option value=''>All</option>
-                  <option value='Fund Transfer'>Fund Transfer</option>
-                  <option value='Bank Transfer'>Bank Transfer</option>
-                  <option value='Bill Payment'>Bill Payment</option>
-                  <option value='Cardless Withdrawal'>Cardless Withdrawal</option>
-                </select>
-              </div>
-            </div>
+            {/* top title removed — we keep the sticky sub-header inside the card only */}
             <div style={{ width: '100%' }}>
+              {/* sticky sub-header inside the card so column labels remain visible; right side shows the selected date */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4vw 0.2vw', position: 'sticky', top: 0, background: '#fff', zIndex: 4, borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ fontWeight: 700, color: '#222' }}>Transaction</div>
+                <div style={{ fontWeight: 700, color: '#222' }}>{new Date(filterDate).toLocaleDateString()}</div>
+              </div>
               {transactions.length === 0 ? (
-                <div style={{ color: '#888', fontSize: '1vw' }}>No transactions found.</div>
+                <div style={{ color: '#888', fontSize: '1vw', paddingTop: '0.6vw' }}>No transactions found.</div>
               ) : (
                 transactions.map((tx) => {
-                  const typeLabel = tx.transaction_types?.name || 'Transaction';
+                  const typeLabel = tx.transaction_types?.name || tx.type || 'Transaction';
+                  const isWithdrawal = Number(tx.type_id) === 4 || (typeLabel || '').toString().toLowerCase().includes('withdrawal');
+                  const signChar = isWithdrawal ? '-' : (tx.amount < 0 ? '-' : '+');
+                  const amountAbs = Math.abs(tx.amount || 0);
+                  const amountColor = isWithdrawal ? '#e53935' : (tx.amount < 0 ? '#e53935' : '#43a047');
                   return (
                     <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7vw', width: '100%' }}>
                       <div>
                         <div style={{ fontWeight: 600, color: '#222', fontSize: '1vw' }}>{typeLabel}</div>
                         <div style={{ color: '#888', fontSize: '0.8vw' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</div>
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: '1vw', color: tx.amount < 0 ? '#e53935' : '#43a047' }}>
-                        {tx.amount < 0 ? '-' : '+'}{Math.abs(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div style={{ fontWeight: 700, fontSize: '1vw', color: amountColor }}>
+                        {signChar}{amountAbs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
                   );
