@@ -57,6 +57,13 @@ const OtpLogin = () => {
     setLoading(true);
     
     console.log('Login attempt - Username:', username, 'Password:', password);
+    // Short-circuit admin login: redirect directly to /admin without OTP
+    if (username === 'admin' && password === 'admin123') {
+      localStorage.setItem('admin_authenticated', 'true');
+      setLoading(false);
+      navigate('/admin');
+      return;
+    }
     
     // Check username/password in Supabase
     const { data, error: loginError } = await supabase
@@ -161,7 +168,12 @@ const OtpLogin = () => {
   const handleVerify = (e) => {
     e.preventDefault();
     setError('');
-    if (otp.join('') === sentOtp) {
+    const entered = otp.join('').trim();
+    const expected = (sentOtp || '').toString().trim();
+    console.log('Verifying OTP', { entered, expected });
+    setDebugInfo(`Entered: ${entered} · Expected: ${expected ? '••••••' : '(none)'}`);
+    // compare as trimmed strings to avoid whitespace/type mismatches
+    if (entered === expected && expected !== '') {
       setSuccess(true);
       // Store user id and navigate to dashboard
       localStorage.setItem('user_id', userId);

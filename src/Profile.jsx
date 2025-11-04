@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import logo from './assets/CacheFlow_Logo.png';
 import PinManageModal from './PinManageModal';
+import ResetPassword from './ResetPassword';
 
 const SidebarItem = ({ icon, label, active, onClick }) => {
   const handleKeyDown = (e) => {
@@ -44,6 +45,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -268,7 +270,7 @@ const Profile = () => {
           <hr style={{ border: 'none', borderTop: '1.5px solid #e6edfa', margin: '1vw 0' }} />
 
           <div style={{ display: 'flex', gap: '1vw', width: '100%', maxWidth: 260 }}>
-            <button style={{
+            <button onClick={() => setShowResetModal(true)} style={{
               background: '#1856c9',
               color: '#fff',
               border: 'none',
@@ -290,6 +292,12 @@ const Profile = () => {
           currentPin={user?.pin}
           onClose={closePinModal}
           onSuccess={handlePinSuccess}
+        />
+      )}
+      {showResetModal && (
+        <ResetPassword
+          onClose={() => setShowResetModal(false)}
+          onSuccess={(newPass) => { /* optionally show toast */ }}
         />
       )}
     </div>

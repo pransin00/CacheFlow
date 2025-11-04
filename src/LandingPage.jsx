@@ -91,6 +91,42 @@ const LandingPage = () => {
         </div>
       </section>
       <ServicesSection />
+
+      <section id="about" style={{ padding: '6% 4%', background: '#fff' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ color: '#333', fontSize: 40, marginBottom: 8, fontWeight: 700 }}>Meet Our Team</h2>
+          <p style={{ color: '#6b7280', marginBottom: 32, maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>Our dedicated team of experienced professionals is at the heart of what we do. We combine product focus, design, and engineering to build delightful banking experiences.</p>
+
+          <div style={{ display: 'flex', gap: 22, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {[
+              { name: 'John Smith', role: 'Company CEO', color: '#ffd5c2' },
+              { name: 'David Johnson', role: 'Co-Founder', color: '#ffd0dd' },
+              { name: 'Mary Johnson', role: 'Product Manager', color: '#dbeeff' },
+              { name: 'Patricia Davis', role: 'Estate Consultant', color: '#ffe7d1' },
+              { name: 'Alex Turner', role: 'Frontend Engineer', color: '#e6f7ff' },
+              { name: 'Sophia Martinez', role: 'Backend Engineer', color: '#fbe7f0' }
+            ].map((m) => (
+              <div key={m.name} style={{ width: 180, background: '#fff', borderRadius: 8, boxShadow: '0 6px 18px rgba(13,38,76,0.06)', overflow: 'visible' }}>
+                <div style={{ height: 120, background: m.color, borderTopLeftRadius: 10, borderTopRightRadius: 10, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  {/* curved bottom effect */}
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: -34, height: 68, background: m.color, borderBottomLeftRadius: 100, borderBottomRightRadius: 100 }} />
+                  {/* avatar circle overlapping */}
+                  <div style={{ position: 'relative', zIndex: 2, width: 100, height: 100, borderRadius: 100, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: -50, boxShadow: '0 6px 18px rgba(10,60,255,0.06)' }}>
+                    <div style={{ width: 90, height: 90, borderRadius: 90, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#333' }}>
+                      {m.name.split(' ').map(n => n[0]).slice(0,2).join('')}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '60px 12px 16px', textAlign: 'center' }}>
+                  <div style={{ fontWeight: 700, color: '#111' }}>{m.name}</div>
+                  <div style={{ color: '#6b7280', marginTop: 6, fontSize: 13 }}>{m.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

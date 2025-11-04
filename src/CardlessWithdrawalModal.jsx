@@ -163,6 +163,8 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
           type: 'Cardless Withdrawal',
           date: new Date().toISOString(),
           transaction_status: 'Pending',
+          // save the selected location name in the bank column for easier lookup
+          bank: selectedLocation?.name || atmName,
           code: withdrawalCode,
           expires_at: expiresAt,
           remaining_balance: accBalance,
@@ -186,6 +188,8 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
             type: 'Cardless Withdrawal',
             date: new Date().toISOString(),
             transaction_status: 'Pending',
+            // also include bank in reduced payload
+            bank: selectedLocation?.name || atmName,
             description: `Cardless Withdrawal (requested ₱${requestedAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) at ${selectedLocation?.name || atmName}`,
           }];
           try {

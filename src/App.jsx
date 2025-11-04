@@ -6,6 +6,7 @@ import Dashboard from './Dashboard';
 import Profile from './Profile';
 import Maps from './Maps';
 import Transactions from './Transactions';
+import Admin from './Admin';
 
 function App() {
   return (
@@ -15,8 +16,9 @@ function App() {
         <Route path="/login" element={<OtpLogin />} />
   <Route path="/dashboard" element={<Dashboard />} />
   <Route path="/transactions" element={<Transactions />} />
-  <Route path="/profile" element={<Profile />} />
-  <Route path="/maps" element={<Maps />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/maps" element={<Maps />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </Router>
   );

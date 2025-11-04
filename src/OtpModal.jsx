@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 
-const OtpModal = ({ isOpen, onClose, onVerify, error }) => {
+const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, timer }) => {
   const [otp, setOtp] = useState('');
   const [localError, setLocalError] = useState('');
 
@@ -47,19 +47,34 @@ const OtpModal = ({ isOpen, onClose, onVerify, error }) => {
             style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginBottom: '1.5vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.3vw' }}
             maxLength={6}
           />
+          {typeof timer === 'number' && <div style={{ color: '#666', marginBottom: '1vw' }}>0:{String(timer).padStart(2, '0')} remaining</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <button type="button" onClick={onClose} style={{
-              background: '#e0e0e0',
-              color: '#222',
-              border: 'none',
-              borderRadius: '0.7vw',
-              padding: '1vw 2vw',
-              fontWeight: 600,
-              fontSize: '1vw',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-            }}>Cancel</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={onClose} style={{
+                background: '#e0e0e0',
+                color: '#222',
+                border: 'none',
+                borderRadius: '0.7vw',
+                padding: '1vw 2vw',
+                fontWeight: 600,
+                fontSize: '1vw',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+              }}>Cancel</button>
+              <button type="button" onClick={onResend} disabled={resendDisabled} style={{
+                background: resendDisabled ? '#f3f4f6' : '#fff',
+                color: '#222',
+                border: '1px solid #d6d6d6',
+                borderRadius: '0.7vw',
+                padding: '1vw 2vw',
+                fontWeight: 600,
+                fontSize: '1vw',
+                cursor: resendDisabled ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+              }}>{resendDisabled ? 'Resend' : 'Resend'}</button>
+            </div>
             <button type="submit" style={{
               background: '#1856c9',
               color: '#fff',
