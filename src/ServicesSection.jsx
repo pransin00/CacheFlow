@@ -81,3 +81,6 @@ const ServicesSection = () => (
 );
 
 export default ServicesSection;
+
+// export the raw services array for reuse in other components
+export { services };
