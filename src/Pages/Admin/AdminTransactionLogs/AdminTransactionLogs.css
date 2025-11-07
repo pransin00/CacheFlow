@@ -1,0 +1,26 @@
+.admin-trans-root { padding: 0; }
+.trans-filter { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+.trans-filter-label { font-size:13px; color:#555; }
+.trans-filter-input { padding:6px 10px; border-radius:6px; border:1px solid #e6eefc; background:#fff; cursor:pointer; }
+.trans-filter-clear { padding:6px 10px; border-radius:6px; background:#fff; border:1px solid #dbeafe; }
+.trans-loading { color:#666; }
+.trans-error { color:#d32f2f; }
+.trans-list-root { margin-top:8px; color:#444; }
+.trans-empty { color:#666; }
+.trans-table { width:100%; border-collapse:collapse; font-size:14px; }
+.trans-table-head { text-align:left; border-bottom:1px solid #eef2ff; }
+.trans-th-ref, .trans-th-date { padding:6px 8px; }
+.trans-row { border-bottom:1px dashed #f6f8ff; cursor:pointer; }
+.trans-td-ref { padding:8px; font-family:monospace; font-size:13px; }
+.trans-td-date { padding:8px; }
+
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:100010; }
+.modal-card { background:#fff; padding:20px; border-radius:10px; width:min(640px,92%); }
+.modal-row { margin-bottom:8px; }
+.modal-input { width:100%; padding:8px; border-radius:6px; border:1px solid #e6eefc; }
+.modal-error { color:#d32f2f; margin-bottom:8px; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+.modal-btn { padding:8px 12px; border-radius:6px; cursor:pointer; }
+.modal-cancel { border:1px solid #dbeafe; background:#fff; }
+.modal-primary { border:none; background:#0a3cff; color:#fff; }
+.tx-details { font-size:14px; color:#222; }

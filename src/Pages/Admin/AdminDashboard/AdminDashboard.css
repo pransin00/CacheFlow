@@ -1,0 +1,21 @@
+.admin-dashboard-root { padding: 0; }
+.admin-dashboard-error { color: #d32f2f; }
+.admin-dashboard-cards { display:flex; gap:16px; margin-top:16px; flex-wrap:wrap; }
+.admin-card { flex:1 1 220px; min-width:220px; background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(10,40,120,0.04); }
+.admin-card-wide { flex:1 1 360px; min-width:260px; }
+.admin-card-title { color:#888; font-size:13px; margin-bottom:8px; }
+.admin-card-value { font-size:28px; font-weight:800; color:#0a3cff; }
+.admin-card-sub { color:#666; margin-top:8px; }
+.admin-top-list { list-style:none; padding:0; margin:0; }
+.admin-top-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #f0f4ff; }
+.admin-empty { color:#666; }
+
+.admin-dashboard-chart { margin-top:22px; width:100%; }
+.admin-main-card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(10,40,120,0.04); }
+.admin-chart-header { display:flex; justify-content:space-between; align-items:center; }
+.admin-chart-title { color:#888; font-size:13px; }
+.admin-chart-sub { color:#666; font-size:13px; }
+
+@media (max-width: 800px) {
+  .admin-dashboard-cards { flex-direction: column; }
+}

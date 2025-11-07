@@ -1,0 +1,32 @@
+.admin-login-root { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #f4f6fb; }
+.admin-login-form { width: 420px; padding: 28px; border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgba(15,30,80,0.08); }
+.admin-login-title { margin: 0 0 12px 0; color: #0a3cff; }
+.admin-login-sub { color: #444; margin-bottom: 18px; }
+.admin-label { display: block; font-weight: 600; margin-bottom: 6px; }
+.admin-input { width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #e6eefc; }
+.admin-error { color: #d32f2f; margin-bottom: 12px; }
+.admin-login-actions { display: flex; gap: 10px; }
+.admin-btn { padding: 10px; border-radius: 8px; cursor: pointer; }
+.admin-btn-primary { flex: 1; border: none; background: #0a3cff; color: #fff; font-weight: 700; }
+.admin-btn-outline { border: 1px solid #dbeafe; background: #fff; }
+
+.admin-root { position: fixed; inset: 0; display: flex; background: #f6f8ff; }
+.admin-sidebar { width: 260px; background: #fff; border-right: 1px solid #eef2ff; padding: 20px; box-sizing: border-box; position: relative; height: 100%; }
+.admin-sidebar-header { margin-bottom: 28px; }
+.admin-sidebar-header h3 { margin: 0; color: #0a3cff; }
+.admin-email { color: #666; font-size: 13px; }
+.admin-nav { display: flex; flex-direction: column; gap: 8px; }
+.admin-nav-btn { text-align: left; padding: 10px 12px; border-radius: 8px; border: none; background: transparent; cursor: pointer; font-weight: 700; }
+.admin-nav-btn.active { background: #eef4ff; }
+.admin-signout { position: absolute; bottom: 20px; left: 20px; }
+.admin-signout-btn { padding: 10px; border-radius: 8px; border: 1px solid #ffd1d1; background: #fff; color: #d32f2f; cursor: pointer; }
+
+.admin-main { flex: 1; padding: 28px; height: 100vh; overflow: auto; box-sizing: border-box; }
+.admin-main-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 6px 20px rgba(15,30,80,0.03); }
+.admin-main-title { margin-top: 0; color: #0a3cff; }
+.admin-main-body { margin-top: 8px; color: #444; }
+
+@media (max-width: 800px) {
+  .admin-sidebar { width: 100%; height: auto; position: relative; }
+  .admin-root { flex-direction: column; }
+}

@@ -1,0 +1,27 @@
+.otp-root { min-height: 100vh; background: #fafdff; display:flex; align-items:center; justify-content:center; }
+.otp-layout { display:flex; width:100vw; height:100vh; }
+.otp-left { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; background: rgba(10,60,255,0.03); }
+.otp-logo { width:18vw; margin-bottom:2vw; }
+.otp-desc { max-width:400px; font-size:1.1vw; color:#6b6b6b; text-align:center; font-weight:400; }
+.otp-right { flex:1; display:flex; align-items:center; justify-content:center; }
+.otp-form { background:#fff; border-radius:2vw; box-shadow:0 2px 16px #0001; padding:3vw 3vw 2vw 3vw; min-width:420px; max-width:480px; width:32vw; display:flex; flex-direction:column; align-items:center; }
+.otp-title { font-weight:700; font-size:1.7vw; color:#1a3185; margin-bottom:1vw; align-self:flex-start; }
+.otp-sub { color:#6b6b6b; font-size:1vw; margin-bottom:2vw; align-self:flex-start; }
+.otp-input { width:100%; margin-bottom:12px; padding:8px; font-size:1.1vw; border-radius:8px; border:1.5px solid #e0e0e0; background:#fafdff; font-weight:500; }
+.otp-button { width:100%; padding:0.9vw 0; background:#1a3185; color:#fff; border:none; border-radius:0.5vw; font-weight:600; font-size:1.1vw; margin-bottom:1vw; cursor:pointer; }
+.otp-inputs { display:flex; gap:1vw; margin-bottom:1.5vw; }
+.otp-digit { width:3vw; height:3vw; font-size:2vw; text-align:center; border:1.5px solid #e0e0e0; border-radius:0.7vw; background:#fafdff; outline:none; font-weight:700; }
+.otp-timer { color:#1a3185; font-weight:500; font-size:1vw; margin-bottom:1vw; align-self:flex-start; }
+.otp-resend { color:#6b6b6b; font-size:0.95vw; margin-bottom:0.5vw; }
+.otp-resend-link { color:#0a3cff; font-weight:500; cursor:pointer; }
+.otp-error { color:red; margin-top:8px; }
+.otp-info { color:#1976d2; margin-top:8px; }
+.otp-debug { color:#666; margin-top:8px; font-size:0.9vw; }
+.otp-success { color:green; margin-top:8px; }
+
+@media (max-width: 800px) {
+  .otp-logo { width: 36vw; }
+  .otp-form { width: 92%; min-width: auto; }
+  .otp-input { font-size: 4vw; }
+  .otp-digit { width: 12vw; height: 12vw; font-size: 6vw; }
+}

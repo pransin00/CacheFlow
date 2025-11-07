@@ -1,0 +1,38 @@
+.au-input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e6eefc;
+  width: 100%;
+  box-sizing: border-box;
+}
+.au-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+.au-btn-primary { background: #0a3cff; color: #fff; }
+.au-btn-cancel { background: #fff; color: #111; border: 1px solid #e6eefc }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.25);
+  z-index: 9999;
+}
+.modal-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: min(720px, 96%);
+  box-shadow: 0 6px 24px rgba(15,23,42,0.12);
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px }
+.modal-btn { padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer }
+.modal-cancel { background: #fff; border: 1px solid #e6eefc }
+.modal-primary { background: #0a3cff; color: #fff }
+.modal-input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #e6eefc }
+.modal-error { color: #d32f2f; margin-top: 8px }
+.au-toast { position: fixed; right: 12px; bottom: 12px; background: #0a3cff; color: #fff; padding: 8px 12px; border-radius: 8px }

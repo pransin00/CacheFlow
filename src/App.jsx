@@ -1,12 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LandingPage from './LandingPage';
-import OtpLogin from './OtpLogin';
-import Dashboard from './Dashboard';
-import Profile from './Profile';
-import Maps from './Maps';
-import Transactions from './Transactions';
-import Admin from './Admin';
+import LandingPage from './Pages/LandingPage/LandingPage';
+import OtpLogin from './Pages/OtpLogin/OtpLogin';
+import Dashboard from './Pages/Dashboard/Dashboard';
+import Profile from './Pages/Profile/Profile';
+import Maps from './Pages/Maps/Maps';
+import Transactions from './Pages/Transactions/Transactions';
+import Admin from './Pages/Admin/Admin';
 
 function App() {
   return (
