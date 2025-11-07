@@ -89,6 +89,75 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
 
   const handleConfirm = async () => {
     setShowConfirm(false);
+    setShowProcessing(true);
+    try {
+      const user_id = localStorage.getItem('user_id');
+      const { data: accountData, error: accountError } = await supabase
+        .from('accounts')
+        .select('id, balance')
+        .eq('user_id', user_id)
+        .single();
+
+      if (accountError || !accountData) {
+        throw new Error('Account not found or error fetching account.');
+      }
+
+      const payAmount = parseFloat(pendingDetails.amount);
+      if (accountData.balance < payAmount) {
+        throw new Error('Insufficient balance.');
+      }
+
+      // Deduct from sender's balance
+      const { error: updateError } = await supabase
+        .from('accounts')
+        .update({ balance: accountData.balance - payAmount })
+        .eq('id', accountData.id);
+
+      if (updateError) {
+        throw new Error('Failed to update balance.');
+      }
+
+      // Insert transaction record
+      const { data: transaction, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          account_id: accountData.id,
+          amount: -payAmount,
+          description: `Bill Payment: ${pendingDetails.reference}`,
+          date: new Date().toISOString(),
+          transaction_status: 'Successfully Completed',
+          recipient_account_number: pendingDetails.reference,
+          type: 'bill payment',
+          type_id: 3,
+          remaining_balance: accountData.balance - payAmount,
+          bank: pendingDetails.biller,
+        })
+        .select()
+        .single();
+
+      if (txError) {
+        // Attempt to revert balance deduction if transaction logging fails
+        await supabase
+          .from('accounts')
+          .update({ balance: accountData.balance })
+          .eq('id', accountData.id);
+        throw new Error('Failed to record transaction.');
+      }
+
+      setReceiptTx(transaction);
+      setShowReceipt(true);
+      setSuccess('Bill payment successful!');
+    } catch (err) {
+      setError(err.message || 'Payment failed. Please try again.');
+    } finally {
+      setShowProcessing(false);
+      setSubmitting(false);
+    }
+  };
+
+  /*
+  const handleConfirm = async () => {
+    setShowConfirm(false);
     setOtpError('');
     setShowProcessing(true);
     try {
@@ -129,6 +198,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
       setError('Failed to connect to OTP server.');
     }
   };
+  */
 
   const handleOtpVerify = async (otp) => {
     setOtpError('');

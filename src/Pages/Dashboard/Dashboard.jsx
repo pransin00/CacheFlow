@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/CacheFlow_Logo.png';
+import Sidebar from '../../share/Sidebar/Sidebar';
 import { supabase } from '../../utils/supabaseClient';
 import overviewIcon from '../../assets/overview.png';
 import historyIcon from '../../assets/history.png';
@@ -15,18 +16,7 @@ import BillPaymentModal from '../../Modals/BillPaymentModal/BillPaymentModal';
 import CardlessWithdrawalModal from '../../Modals/CardlessWithdrawalModal/CardlessWithdrawalModal';
 import './Dashboard.css';
 
-const SidebarItem = ({ icon, label, active, onClick }) => (
-  <div 
-    onClick={onClick} 
-    role="button"
-    tabIndex={0}
-    onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
-    className={`sidebar-item ${active ? 'active' : ''}`}
-  >
-    <span className="sidebar-icon">{icon}</span>
-    {label}
-  </div>
-);
+// sidebar is handled by shared Sidebar component
 
 const ActionButton = ({ label, icon, onClick }) => (
   <div onClick={onClick} className="action-button">
@@ -55,7 +45,6 @@ const Dashboard = () => {
     const today = new Date();
     return today.toISOString().slice(0, 10);
   });
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [showFundTransferModal, setShowFundTransferModal] = useState(false);
   const [showBankTransferModal, setShowBankTransferModal] = useState(false);
@@ -138,38 +127,13 @@ const Dashboard = () => {
     return () => window.removeEventListener('transactions:refresh', onRefresh);
   }, [account, filterDate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('user_id');
-    window.location.href = '/login';
-  };
+  // logout handled by shared Sidebar
 
   return (
     <div className="dashboard-root">
-      <div className="dashboard-sidebar">
-        <img src={logo} alt="CacheFlow Logo" className="sidebar-logo" />
-        <div className="sidebar-items">
-          <SidebarItem icon={<span className="menu-icon">&#9776;</span>} label="Overview" active onClick={() => navigate('/dashboard')} />
-          <SidebarItem icon={<span className="menu-icon">&#8596;</span>} label="Transactions" onClick={() => navigate('/transactions')} />
-          <SidebarItem icon={<span className="menu-icon">&#128205;</span>} label="Maps" onClick={() => navigate('/maps')} />
-        </div>
-        <div className="sidebar-bottom">
-          <div onClick={() => setShowLogoutModal(true)}>
-            <SidebarItem icon={<img src={logoutIcon} alt="Logout" className="icon-img" />} label={<span className="logout-label">Logout</span>} />
-          </div>
-        </div>
-      </div>
+      <Sidebar activePage="dashboard" />
 
-      {showLogoutModal && (
-        <div className="logout-modal-backdrop">
-          <div className="logout-modal">
-            <div className="logout-title">Are you sure you want to log out?</div>
-            <div className="logout-actions">
-              <button onClick={handleLogout} className="btn-logout">Log out</button>
-              <button onClick={() => setShowLogoutModal(false)} className="btn-cancel">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* logout modal is now part of shared Sidebar */}
 
       <FundTransferModal
         isOpen={showFundTransferModal}

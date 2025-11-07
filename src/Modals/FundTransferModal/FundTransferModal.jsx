@@ -210,6 +210,20 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     setShowConfirm(true);
   };
 
+  // After user confirms, process transfer directly (OTP DISABLED)
+  const handleConfirm = async () => {
+    setShowConfirm(false);
+    setPendingTransfer(true);
+    const tx = await processTransfer();
+    setPendingTransfer(false);
+    if (tx) {
+      setSuccessTx(tx);
+      setShowSuccess(true);
+    }
+    setPendingDetails(null);
+  };
+
+  /*
   // After user confirms, send OTP to the sender's phone (logged-in user) and show OTP modal
   const handleConfirm = async () => {
   setShowConfirm(false);
@@ -262,6 +276,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       setError('Failed to connect to OTP server.');
     }
   };
+  */
 
   // After OTP is entered, validate and process transfer
   const handleOtpVerify = async (otp) => {

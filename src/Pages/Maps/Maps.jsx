@@ -4,22 +4,12 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import logo from '../../assets/CacheFlow_Logo.png';
 import logoutIcon from '../../assets/logout.png';
+import Sidebar from '../../share/Sidebar/Sidebar';
 import CardlessWithdrawalModal from '../../Modals/CardlessWithdrawalModal/CardlessWithdrawalModal.jsx';
 import { locations } from '../../utils/locations';
 import './Maps.css';
 
-const SidebarItem = ({ icon, label, active, onClick }) => (
-  <div 
-    onClick={onClick} 
-    role="button"
-    tabIndex={0}
-    onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
-    className={`maps-sidebar-item ${active ? 'active' : ''}`}
-  >
-    <span className="maps-sidebar-icon">{icon}</span>
-    {label}
-  </div>
-);
+// use shared Sidebar for navigation
 
 const Maps = () => {
   const navigate = useNavigate();
@@ -27,22 +17,7 @@ const Maps = () => {
 
   return (
     <div className="maps-root">
-      <div className="maps-sidebar">
-        <img src={logo} alt="CacheFlow Logo" className="maps-logo" />
-        <div className="maps-items">
-          <SidebarItem icon={<span className="menu-icon">&#9776;</span>} label="Overview" onClick={() => navigate('/dashboard')} />
-          <SidebarItem icon={<span className="menu-icon">&#8596;</span>} label="Transactions" onClick={() => navigate('/transactions')} />
-          <SidebarItem icon={<span className="menu-icon">&#128205;</span>} label="Maps" active onClick={() => navigate('/maps')} />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="maps-logout">
-          <SidebarItem 
-            icon={<img src={logoutIcon} alt="Logout" className="icon-img" />} 
-            label={<span className="logout-label">Logout</span>}
-            onClick={() => { localStorage.removeItem('user_id'); window.location.href = '/login'; }}
-          />
-        </div>
-      </div>
+      <Sidebar activePage="maps" />
 
       <div className="maps-container">
         <MapContainer 

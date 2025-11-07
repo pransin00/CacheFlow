@@ -1,11 +1,12 @@
 .dashboard-root {
-  min-height: 100vh;
   width: 100vw;
+  height: 100vh;
   background: #fafdff;
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  overflow: hidden; /* root shouldn't scroll - main area will */
 }
 
 .dashboard-sidebar {
@@ -17,6 +18,11 @@
   flex-direction: column;
   padding: 2vw 0;
   box-sizing: border-box;
+  position: fixed; /* keep sidebar fixed full height */
+  left: 0;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
 }
 .sidebar-logo { width: 10vw; margin: 0 0 2vw 2vw; align-self: flex-start; }
 .sidebar-items { width: 100%; margin-top: 2vw; padding: 0 1vw; box-sizing: border-box; }
@@ -33,7 +39,16 @@
 .btn-logout { background: #e53935; color: #fff; border: none; border-radius: 0.5vw; padding: 0.7vw 2vw; font-weight: 600; font-size: 1vw; cursor: pointer; }
 .btn-cancel { background: #eee; color: #222; border: none; border-radius: 0.5vw; padding: 0.7vw 2vw; font-weight: 600; font-size: 1vw; cursor: pointer; }
 
-.dashboard-main { flex: 1; display: flex; flex-direction: column; padding: 2vw 3vw; box-sizing: border-box; }
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2vw 3vw;
+  box-sizing: border-box;
+  margin-left: 16vw; /* leave space for fixed sidebar */
+  height: 100vh;
+  overflow-y: auto; /* scroll only the main area */
+}
 .main-top-row { display:flex; justify-content:space-between; align-items:flex-start; }
 .page-title { font-weight:700; font-size:2vw; color:#222; margin-bottom:2vw; margin-top:0.5vw; }
 .user-area { display:flex; align-items:center; gap: 0.6vw; }

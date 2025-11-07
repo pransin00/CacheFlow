@@ -116,6 +116,85 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
     setShowConfirm(true);
   };
 
+  // After confirm, process transfer directly (OTP DISABLED)
+  const handleConfirm = async () => {
+    setShowConfirm(false);
+    setProcessing(true);
+
+    // --- Start of original transfer logic from handleOtpVerify ---
+    const senderAccount = await fetchSenderAccount();
+    if (!senderAccount) {
+      setProcessing(false);
+      setError('Unable to fetch your account.');
+      return;
+    }
+    const totalDeduct = Number(amount) + 15;
+    if (senderAccount.balance < totalDeduct) {
+      setProcessing(false);
+      setError('Insufficient balance for this transfer (including ₱15 fee).');
+      return;
+    }
+    let typeName = 'Bank Transfer';
+    const { data: typeData } = await supabase
+      .from('transaction_types')
+      .select('name')
+      .eq('id', 2)
+      .single();
+    if (typeData && typeData.name) typeName = typeData.name;
+
+    const { error: updateErr } = await supabase
+      .from('accounts')
+      .update({ balance: senderAccount.balance - totalDeduct })
+      .eq('id', senderAccount.id);
+    if (updateErr) {
+      setProcessing(false);
+      setError('Failed to deduct from your account.');
+      return;
+    }
+
+    const newBalance = senderAccount.balance - totalDeduct;
+    const { data: tx, error: txErr } = await supabase
+      .from('transactions')
+      .insert([{
+        account_id: senderAccount.id,
+        amount: -totalDeduct,
+        type_id: 2,
+        type: typeName,
+        date: new Date().toISOString(),
+        description: `${typeName} to ${bank} - ${accountNumber} (${accountName}), fee: ₱15`,
+        transaction_status: 'Successfully Completed',
+        bank: bank,
+        recipient_account_number: accountNumber,
+        remaining_balance: newBalance,
+      }])
+      .select()
+      .single();
+
+    if (txErr) {
+      setProcessing(false);
+      setError('Failed to record transaction.');
+      return;
+    }
+
+    setProcessing(false);
+    setSuccess(true);
+    setSuccessDetails({
+      bank,
+      accountNumber,
+      accountName,
+      amount,
+      date: tx.date,
+      reference: tx.id,
+    });
+
+    setBank('');
+    setAccountNumber('');
+    setAccountName('');
+    setAmount('');
+    // --- End of original transfer logic ---
+  };
+
+  /*
   // After confirm, send OTP
   const handleConfirm = async () => {
     setShowConfirm(false);
@@ -157,6 +236,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       setError('Failed to connect to OTP server.');
     }
   };
+  */
 
   // After OTP is entered, validate and process transfer
   const handleOtpVerify = async (otp) => {

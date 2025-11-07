@@ -1,49 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/CacheFlow_Logo.png';
+import Sidebar from '../../share/Sidebar/Sidebar';
 import { supabase } from '../../utils/supabaseClient';
 import logoutIcon from '../../assets/logout.png';
 import './Transactions.css';
 
-const SidebarItem = ({ icon, label, active, onClick }) => (
-  <div 
-    onClick={onClick} 
-    role="button"
-    tabIndex={0}
-    onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '1vw',
-      padding: '0.8vw 2vw',
-      fontWeight: active ? 700 : 500,
-      fontSize: '1.1vw',
-      color: active ? '#0a3cff' : '#888',
-      background: active ? '#e6edfa' : 'none',
-      borderRadius: '0.7vw',
-      marginBottom: '0.7vw',
-      cursor: onClick ? 'pointer' : 'default',
-      width: '100%',
-      boxSizing: 'border-box',
-      transition: 'background-color 0.2s, color 0.2s',
-      userSelect: 'none',
-      outline: 'none',
-      '&:hover': {
-        background: active ? '#e6edfa' : '#f5f7fa',
-      }
-    }}
-  >
-    <span style={{ fontSize: '1.3vw' }}>{icon}</span>
-    {label}
-  </div>
-);
+// use shared Sidebar component for consistent navigation
 
 const Transactions = () => {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  // logout handled by shared Sidebar
   const [selectedTx, setSelectedTx] = useState(null);
   // weekDate is the picker value (ISO week string like 2025-W44).
   const [weekDate, setWeekDate] = useState('');
@@ -347,76 +317,14 @@ const Transactions = () => {
     };
   }, [weekDate, categoryFilter]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('user_id');
-    window.location.href = '/login';
-  };
+  
 
   return (
-    <div style={{ minHeight: '100vh', width: '100vw', background: '#fafdff', boxSizing: 'border-box', display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch' }}>
-      {/* Sidebar */}
-      <div style={{
-        width: '16vw',
-        minWidth: 180,
-        height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        background: '#fff',
-        boxShadow: '0 2px 12px rgba(10,60,255,0.06)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        padding: '2vw 0 2vw 0',
-        gap: '1vw',
-        boxSizing: 'border-box',
-        zIndex: 100,
-      }}>
-        <img src={logo} alt="CacheFlow Logo" style={{ width: '10vw', margin: '0 0 2vw 2vw', alignSelf: 'flex-start' }} />
-        <div style={{ width: '100%', marginTop: '2vw' }}>
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#9776;</span>} label="Overview" onClick={() => navigate('/dashboard')} />
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#8596;</span>} label="Transactions" active onClick={() => navigate('/transactions')} />
-          <SidebarItem icon={<span style={{fontSize:'1.5vw'}}>&#128205;</span>} label="Maps" onClick={() => navigate('/maps')} />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ width: '100%', marginBottom: '2vw' }}>
-          <div onClick={() => setShowLogoutModal(true)}>
-            <SidebarItem icon={<img src={logoutIcon} alt="Logout" style={{width:'1.5vw',height:'1.5vw',objectFit:'contain'}} />} label={<span style={{color:'#e53935',fontWeight:700}}>Logout</span>} />
-          </div>
-        </div>
-      </div>
-      {/* Logout Modal */}
-      {showLogoutModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '1vw',
-            padding: '2vw 3vw',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-            minWidth: 300,
-            textAlign: 'center',
-          }}>
-            <div style={{ fontWeight: 700, fontSize: '1.2vw', marginBottom: '1vw' }}>Are you sure you want to log out?</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '2vw' }}>
-              <button onClick={handleLogout} style={{ background: '#e53935', color: '#fff', border: 'none', borderRadius: '0.5vw', padding: '0.7vw 2vw', fontWeight: 600, fontSize: '1vw', cursor: 'pointer' }}>Log out</button>
-              <button onClick={() => setShowLogoutModal(false)} style={{ background: '#eee', color: '#222', border: 'none', borderRadius: '0.5vw', padding: '0.7vw 2vw', fontWeight: 600, fontSize: '1vw', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div style={{ height: '100vh', width: '100vw', background: '#fafdff', boxSizing: 'border-box', display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'stretch', overflow: 'hidden' }}>
+      <Sidebar activePage="transactions" />
+      {/* logout modal is part of shared Sidebar */}
       {/* Main Content */}
-  <div style={{ flex: 1, padding: '2vw', minHeight: '80vh', background: '#fafdff', marginLeft: '16vw' }}>
+  <div style={{ flex: 1, padding: '2vw', background: '#fafdff', marginLeft: '16vw', height: '100vh', overflowY: 'auto', boxSizing: 'border-box' }}>
         <h2 style={{ color: '#1856c9', fontWeight: 700, marginBottom: '2vw' }}>All Transactions</h2>
         {/* Filters */}
         <div style={{ display: 'flex', gap: '2vw', marginBottom: '2vw', alignItems: 'center' }}>

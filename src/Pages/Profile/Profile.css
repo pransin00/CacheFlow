@@ -1,8 +1,11 @@
 .profile-root {
   display: flex;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden; /* prevent page-level scroll, main content will scroll */
   background: #f6f8fb;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  box-sizing: border-box;
 }
 
 .profile-sidebar {
@@ -13,6 +16,12 @@
   flex-direction: column;
   padding: 1.2rem;
   box-shadow: 0 1px 0 rgba(10, 10, 10, 0.02);
+  position: fixed; /* keep sidebar full height and fixed */
+  left: 0;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .profile-logo {
@@ -37,39 +46,53 @@
 
 .profile-bottom { margin-top: auto; }
 
-.profile-main { flex: 1; padding: 2rem; }
+.profile-main {
+  flex: 1;
+  padding: 2rem;
+  margin-left: 16vw; /* leave space for fixed shared sidebar */
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto; /* scroll inside main area only */
+  display: flex;
+  align-items: center; /* center vertically */
+  justify-content: center; /* center horizontally */
+  box-sizing: border-box;
+}
 
 .profile-card {
   background: #fff;
   border-radius: 12px;
-  padding: 1.4rem;
-  max-width: 980px;
-  box-shadow: 0 6px 20px rgba(16,24,40,0.04);
+  padding: 2rem; /* increased padding for larger content */
+  width: 60%; /* slightly bigger card */
+  max-width: 920px; /* allow larger card on wide screens */
+  min-width: 360px;
+  box-shadow: 0 8px 26px rgba(16,24,40,0.06);
+  box-sizing: border-box;
 }
 
-.profile-title { font-size: 20px; font-weight: 600; color: #0f172a; margin-bottom: 0.8rem; }
+.profile-title { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
 
 .avatar-row { display:flex; align-items:center; gap: 0.75rem; }
-.avatar-circle { width:56px; height:56px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#e6eefc; color:#0b61ff; font-weight:700; font-size:18px; }
+.avatar-circle { width:72px; height:72px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#e6eefc; color:#0b61ff; font-weight:700; font-size:22px; }
 .avatar-edit { cursor:pointer; }
 
-.username { font-weight: 600; color: #0b61ff; margin-top: 0.5rem; }
+.username { font-weight: 700; color: #0b61ff; margin-top: 0.6rem; font-size: 1.05rem; }
 
-.profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
-.field-label { font-size: 12px; color:#64748b; margin-bottom: 0.25rem; }
-.field-val { font-size: 14px; color: #0f172a; background: #fbfdff; padding: 0.5rem; border-radius: 6px; }
+.profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-top: 1.1rem; }
+.field-label { font-size: 13px; color:#64748b; margin-bottom: 0.35rem; }
+.field-val { font-size: 15px; color: #0f172a; background: #fbfdff; padding: 0.75rem; border-radius: 8px; }
 
 .divider { border: none; border-top: 1px solid #eef2f7; margin: 1rem 0; }
 
 .pin-row { display:flex; align-items:center; justify-content:space-between; gap: 1rem; }
-.pin-val { font-weight: 600; }
-.btn-pin { background: #0b61ff; color: #fff; border: none; padding: 0.5rem 0.9rem; border-radius: 8px; cursor: pointer; display:flex; align-items:center; gap:0.5rem; }
+.pin-val { font-weight: 700; font-size: 1rem; }
+.btn-pin { background: #0b61ff; color: #fff; border: none; padding: 0.7rem 1.1rem; border-radius: 10px; cursor: pointer; display:flex; align-items:center; gap:0.6rem; font-weight: 700; }
 .btn-pin:hover { opacity: 0.95; }
 
-.pin-note { color: #64748b; font-size: 13px; margin-top: 0.6rem; }
+.pin-note { color: #64748b; font-size: 14px; margin-top: 0.8rem; }
 
-.reset-row { margin-top: 0.8rem; }
-.btn-reset { background: transparent; border: 1px solid #e2e8f0; padding: 0.5rem 0.9rem; border-radius:8px; cursor:pointer; }
+.reset-row { margin-top: 1rem; }
+.btn-reset { background: transparent; border: 1px solid #e2e8f0; padding: 0.7rem 1rem; border-radius:10px; cursor:pointer; font-weight:600; }
 
 .menu-icon { font-size: 14px; }
 
@@ -77,8 +100,9 @@
 
 @media (max-width: 800px) {
   .profile-root { flex-direction: column; }
-  .profile-sidebar { width: 100%; flex-direction: row; align-items:center; gap: 1rem; }
-  .profile-main { padding: 1rem; }
-  .profile-card { width: 100%; }
+  .profile-sidebar { position: relative; width: 100%; height: auto; flex-direction: row; align-items:center; gap: 1rem; }
+  .profile-main { margin-left: 0; padding: 1rem; align-items: flex-start; justify-content: flex-start; }
+  .profile-card { width: 100%; max-width: none; padding: 1.25rem; }
   .profile-grid { grid-template-columns: 1fr; }
+  .avatar-circle { width:56px; height:56px; font-size:18px; }
 }

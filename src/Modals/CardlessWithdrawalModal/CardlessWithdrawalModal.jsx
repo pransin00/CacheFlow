@@ -84,6 +84,76 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
       return;
     }
 
+    // OTP DISABLED: Skip PIN check and proceed with code generation.
+    // The PIN check logic is commented out below.
+
+    const withdrawalCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // insert a pending transaction into the DB with a 10-minute expiry
+    (async () => {
+      try {
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+        const requestedAmt = parseFloat(amount) || 0;
+        const userId = localStorage.getItem('user_id');
+        let accountId = null;
+        let accBalance = null;
+
+        if (userId) {
+          const { data: accData, error: accErr } = await supabase
+            .from('accounts')
+            .select('id, balance')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (accErr) console.error('Failed to fetch account', accErr);
+          if (accData) {
+            accountId = accData.id;
+            accBalance = accData.balance;
+          }
+        }
+
+        if (!accountId) {
+          setError('No account found for current user.');
+          return;
+        }
+
+        if (accBalance < requestedAmt) {
+          setError('Insufficient balance.');
+          return;
+        }
+
+        const fullPayload = [{
+          account_id: accountId,
+          amount: -(requestedAmt),
+          type_id: 4,
+          type: 'Cardless Withdrawal',
+          date: new Date().toISOString(),
+          transaction_status: 'Pending',
+          bank: selectedLocation?.name || atmName,
+          code: withdrawalCode,
+          expires_at: expiresAt,
+          remaining_balance: accBalance,
+          description: `Cardless Withdrawal (requested ₱${requestedAmt.toLocaleString()}) at ${selectedLocation?.name || atmName}`,
+        }];
+
+        const { data: inserted, error: insertErr } = await supabase.from('transactions').insert(fullPayload).select().single();
+
+        if (insertErr) {
+          throw insertErr;
+        }
+
+        setGeneratedCode(withdrawalCode);
+        onGenerate?.(selectedLocation, inserted);
+        window.dispatchEvent(new CustomEvent('transactions:refresh'));
+
+      } catch (err) {
+        console.error('Exception inserting pending withdrawal:', err);
+        setError(`Failed to record pending withdrawal: ${err.message}`);
+      }
+    })();
+
+    /*
     // validate amount
     const amt = parseFloat(amount || '0');
     if (isNaN(amt) || amt <= 0) {
@@ -220,6 +290,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
         setError(`Failed to record pending withdrawal: ${msg}`);
       }
     })();
+    */
   };
 
   return (

@@ -2,28 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
 import logo from '../../assets/CacheFlow_Logo.png';
+import Sidebar from '../../share/Sidebar/Sidebar';
 import PinManageModal from "../../Modals/PinManageModal/PinManageModal";
 import ResetPassword from '../ResetPassword/ResetPassword';
 import './Profile.css';
 
-const SidebarItem = ({ icon, label, active, onClick }) => {
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && onClick) onClick();
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      className={`profile-sidebar-item ${active ? 'active' : ''}`}
-    >
-      <span className="profile-sidebar-icon">{icon}</span>
-      {label}
-    </div>
-  );
-};
+// navigation handled by shared Sidebar component
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -58,17 +42,7 @@ const Profile = () => {
 
   return (
     <div className="profile-root">
-      <div className="profile-sidebar">
-        <img src={logo} alt="CacheFlow Logo" className="profile-logo" />
-        <div className="profile-items">
-          <SidebarItem icon={<span className="menu-icon">&#9776;</span>} label="Overview" onClick={() => navigate('/dashboard')} />
-          <SidebarItem icon={<span className="menu-icon">&#8596;</span>} label="Transactions" onClick={() => navigate('/transactions')} />
-          <SidebarItem icon={<span className="menu-icon">&#128205;</span>} label="Maps" onClick={() => navigate('/maps')} />
-        </div>
-        <div className="profile-bottom">
-          <SidebarItem icon={<span className="menu-icon">&#8592;</span>} label={<span className="logout-label">Logout</span>} onClick={() => { localStorage.removeItem('user_id'); window.location.href = '/login'; }} />
-        </div>
-      </div>
+      <Sidebar activePage="profile" />
 
       <div className="profile-main">
         <div style={{ height: '1.2rem' }} />

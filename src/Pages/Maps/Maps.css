@@ -1,11 +1,12 @@
 .maps-root {
-  min-height: 100vh;
   width: 100vw;
+  height: 100vh;
   background: #fafdff;
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  overflow: hidden;
 }
 .maps-sidebar {
   width: 16vw;
@@ -16,6 +17,11 @@
   flex-direction: column;
   padding: 2vw 0;
   box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
 }
 .maps-logo { width: 10vw; margin: 0 0 2vw 2vw; align-self: flex-start; }
 .maps-items { width: 100%; margin-top: 2vw; padding: 0 1vw; box-sizing: border-box; }
@@ -25,7 +31,7 @@
 .icon-img { width: 1.5vw; height: 1.5vw; object-fit: contain; }
 .logout-label { color: #e53935; font-weight: 700; }
 
-.maps-container { flex: 1; position: relative; }
+.maps-container { flex: 1; position: relative; margin-left: 16vw; height: 100vh; overflow-y: auto; }
 
 .popup { padding: 15px; min-width: 250px; }
 .popup-title { margin: 0 0 10px 0; color: #0a3cff; }

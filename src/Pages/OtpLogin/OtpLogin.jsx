@@ -93,6 +93,13 @@ const OtpLogin = () => {
     setUserId(data.id);
     setDebugInfo(`Contact number: ${trimmedContactNumber}`);
 
+    // OTP DISABLED: Directly navigate to dashboard after credential check.
+    localStorage.setItem('user_id', data.id);
+    navigate('/dashboard');
+    setLoading(false);
+    return;
+
+    /*
     // Request backend to generate and send the OTP
     try {
       const response = await fetch('http://localhost:3001/api/send-otp', {
@@ -121,6 +128,7 @@ const OtpLogin = () => {
       console.error('Server connection error:', err);
     }
     setLoading(false);
+    */
   };
 
   const handleSendOtp = async () => {
