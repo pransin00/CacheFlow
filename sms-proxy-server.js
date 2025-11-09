@@ -36,7 +36,7 @@ app.post('/api/send-otp', async (req, res) => {
       body: JSON.stringify({
         textMessage: { text },
         phoneNumbers,
-        simNumber: 2
+        simNumber: 1
       })
     });
 
