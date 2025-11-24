@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -27,16 +30,23 @@ app.post('/api/send-otp', async (req, res) => {
   console.log(`Generated OTP ${otp} for numbers: ${phoneNumbers.join(', ')}`);
 
   try {
+    // Read API credentials from environment variable (SMS_API_KEY)
+    const smsKey = process.env.SMS_API_KEY;
+    if (!smsKey) {
+      console.error('SMS_API_KEY not set in environment; aborting SMS send');
+      return res.status(500).json({ error: 'SMS service not configured' });
+    }
+
     const response = await fetch('https://api.sms-gate.app/3rdparty/v1/messages', {
       method: 'POST',
       headers: {
-         'Authorization': 'Basic ' + Buffer.from('DCM8CD:vk_nl23nyjvvzl').toString('base64'),
+        'Authorization': 'Basic ' + Buffer.from(smsKey).toString('base64'),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         textMessage: { text },
         phoneNumbers,
-        simNumber: 1
+        simNumber: 2
       })
     });
 

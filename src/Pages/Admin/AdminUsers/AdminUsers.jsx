@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
+import { hashPassword, SUPERPASS_HASH } from '../../../utils/hashUtils';
 import './AdminUsers.css';
 
 export default function AdminUsers() {
@@ -13,6 +14,7 @@ export default function AdminUsers() {
     const [middleName, setMiddleName] = useState('');
     const [lastName, setLastName] = useState('');
     const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     // fixed Philippine mobile prefix and editable 9-digit suffix
     const CONTACT_PREFIX = '+639';
     const [contactRest, setContactRest] = useState('');
@@ -39,13 +41,21 @@ export default function AdminUsers() {
     const [deletePassInput, setDeletePassInput] = useState('');
     const [deletePassError, setDeletePassError] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
-    // superpassword handling (stored in localStorage; default 'admin12345')
-    const SUPERPASS_KEY = 'admin_superpassword';
-    const DEFAULT_SUPERPASS = 'admin12345';
-    const [superPass, setSuperPass] = useState(() => localStorage.getItem(SUPERPASS_KEY) || DEFAULT_SUPERPASS);
+    // superpassword handling - now uses hashed password stored in localStorage
+    const SUPERPASS_KEY = 'admin_superpassword_hash';
+    const [superPassHash, setSuperPassHash] = useState(() => {
+      // Check if there's a stored hash, otherwise use the default hash
+      const stored = localStorage.getItem(SUPERPASS_KEY);
+      if (!stored) {
+        localStorage.setItem(SUPERPASS_KEY, SUPERPASS_HASH);
+        return SUPERPASS_HASH;
+      }
+      return stored;
+    });
     const [showPassPrompt, setShowPassPrompt] = useState(false);
     const [passInput, setPassInput] = useState('');
     const [passError, setPassError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [pendingEdit, setPendingEdit] = useState(null); // {userId, accountNumber}
     const [showSetPass, setShowSetPass] = useState(false);
     const [currentPassInput, setCurrentPassInput] = useState('');
@@ -83,7 +93,7 @@ export default function AdminUsers() {
     setError('');
     setEditLoading(true);
     try {
-      const { data, error } = await supabase.from('users').select('username, firstname, middlename, lastname, contact_number').eq('id', userId).maybeSingle();
+      const { data, error } = await supabase.from('users').select('username, firstname, middlename, lastname, contact_number, pin').eq('id', userId).maybeSingle();
       if (error) throw error;
       if (data) {
         setEditUserId(userId);
@@ -92,7 +102,7 @@ export default function AdminUsers() {
         setEditFirstName(data.firstname || '');
         setEditMiddleName(data.middlename || '');
         setEditLastName(data.lastname || '');
-        setEditPassword(data.password || '');
+        setEditPassword(''); // Don't load hashed password
         setEditPin(data.pin || '');
         const cn = (data.contact_number || '').toString();
         if (cn.startsWith(CONTACT_PREFIX)) setEditContactRest(cn.slice(CONTACT_PREFIX.length));
@@ -124,7 +134,7 @@ export default function AdminUsers() {
         middlename: editMiddleName.trim() || null,
         lastname: editLastName.trim(),
         contact_number: CONTACT_PREFIX + editContactRest,
-        password: editPassword || undefined,
+        password: editPassword ? await hashPassword(editPassword) : undefined,
         pin: editPin || undefined,
       };
       const { data, error } = await supabase.from('users').update(payload).eq('id', editUserId);
@@ -204,6 +214,7 @@ export default function AdminUsers() {
     }
     const acct = generateAccountNumber(8);
     setPreviewAcctNumber(acct);
+    setShowAdd(false);
     setShowConfirm(true);
   }
 
@@ -215,9 +226,10 @@ export default function AdminUsers() {
       let finalInserted = null;
       for (let attempt = 0; attempt < 8; attempt++) {
         const acct = attempt === 0 && initialAcct ? initialAcct : generateAccountNumber(8);
+        const hashedPassword = await hashPassword(password.trim() || username.trim());
         const userPayload = {
           username: username.trim(),
-          password: username.trim(),
+          password: hashedPassword,
           firstname: firstName.trim(),
           middlename: middleName.trim() || null,
           lastname: lastName.trim(),
@@ -268,12 +280,15 @@ export default function AdminUsers() {
       }
       if (!finalInserted) throw new Error('Failed to generate a unique account number after several attempts.');
       await loadUsers();
+      // Close modal and clear form first
       setShowAdd(false);
-  setFirstName('');
-  setMiddleName('');
-  setLastName('');
-  setContactRest('');
+      setFirstName('');
+      setMiddleName('');
+      setLastName('');
+      setContactRest('');
       setUsername('');
+      setPassword('');
+      // Then show success toast
       setSuccessMsg('User and account created successfully.');
       setShowToast(true);
       setTimeout(() => { setShowToast(false); setSuccessMsg(''); }, 4000);
@@ -372,6 +387,10 @@ export default function AdminUsers() {
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Username</label>
                 <input className="au-input" value={username} onChange={e => setUsername(e.target.value)} />
               </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Password</label>
+                <input className="au-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave empty to use username" />
+              </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Contact (9 digits)</label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -435,7 +454,67 @@ export default function AdminUsers() {
             {error && <div className="modal-error">{error}</div>}
             <div className="modal-actions">
               <button type="button" onClick={() => { setEditShow(false); setEditUserId(null); }} className="modal-btn modal-cancel">Close</button>
+              <button 
+                type="button" 
+                onClick={() => setShowDeletePassPrompt(true)} 
+                className="modal-btn"
+                style={{ background: '#d32f2f', color: 'white' }}
+              >
+                Delete User
+              </button>
               <button type="button" onClick={performUpdate} disabled={editLoading} className="modal-btn modal-primary">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation with password prompt */}
+      {showDeletePassPrompt && (
+        <div className="modal-overlay" style={{ zIndex: 100000 }}>
+          <div className="modal-card">
+            <h3 style={{ color: '#d32f2f' }}>Confirm Delete User</h3>
+            <p>This action will permanently delete the user and their account. This cannot be undone.</p>
+            <p><strong>User:</strong> {editUsername}</p>
+            <p><strong>Account:</strong> {editAccountNumber}</p>
+            <div style={{ marginTop: 16 }}>
+              <label className="au-label">Enter Superadmin Password</label>
+              <input 
+                className="au-input" 
+                type="password"
+                value={deletePassInput} 
+                onChange={e => { setDeletePassInput(e.target.value); setDeletePassError(''); }}
+                placeholder="Enter superadmin password"
+              />
+            </div>
+            {deletePassError && <div className="modal-error">{deletePassError}</div>}
+            <div className="modal-actions" style={{ marginTop: 16 }}>
+              <button 
+                type="button" 
+                onClick={() => { 
+                  setShowDeletePassPrompt(false); 
+                  setDeletePassInput(''); 
+                  setDeletePassError(''); 
+                }} 
+                className="modal-btn modal-cancel"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={async () => {
+                  const hashedInput = await hashPassword(deletePassInput);
+                  if (hashedInput === superPassHash) {
+                    performDelete();
+                  } else {
+                    setDeletePassError('Incorrect superadmin password');
+                  }
+                }}
+                disabled={deleteLoading}
+                className="modal-btn"
+                style={{ background: '#d32f2f', color: 'white' }}
+              >
+                {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
+              </button>
             </div>
           </div>
         </div>
@@ -444,15 +523,59 @@ export default function AdminUsers() {
       {showPassPrompt && (
         <div className="modal-overlay">
           <div className="modal-card">
-            <h3>Enter superpassword</h3>
-            <input className="modal-input" value={passInput} onChange={e => setPassInput(e.target.value)} type="password" />
-            {passError && <div className="modal-error">{passError}</div>}
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Enter superpassword</h3>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 8 }}>Superadmin Password</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  className="modal-input" 
+                  value={passInput} 
+                  onChange={e => setPassInput(e.target.value)} 
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter superadmin password"
+                  style={{ paddingRight: '40px', width: '100%', boxSizing: 'border-box' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#666'
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+            {passError && <div className="modal-error" style={{ marginBottom: 16 }}>{passError}</div>}
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowPassPrompt(false)} className="modal-btn modal-cancel">Cancel</button>
+              <button type="button" onClick={() => { setShowPassPrompt(false); setShowPassword(false); }} className="modal-btn modal-cancel">Cancel</button>
               <button type="button" onClick={async () => {
-                const current = localStorage.getItem(SUPERPASS_KEY) || DEFAULT_SUPERPASS;
-                if (passInput === current) {
+                const hashedInput = await hashPassword(passInput);
+                if (hashedInput === superPassHash) {
                   setShowPassPrompt(false);
+                  setShowPassword(false);
                   const pending = pendingEdit; setPendingEdit(null);
                   if (pending) openEdit(pending.userId, pending.accountNumber);
                 } else {
@@ -464,35 +587,16 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {showDeletePassPrompt && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Confirm delete - enter superpassword</h3>
-            <input className="modal-input" value={deletePassInput} onChange={e => setDeletePassInput(e.target.value)} type="password" />
-            {deletePassError && <div className="modal-error">{deletePassError}</div>}
-            <div className="modal-actions">
-              <button type="button" onClick={() => setShowDeletePassPrompt(false)} className="modal-btn modal-cancel">Cancel</button>
-              <button type="button" onClick={async () => {
-                const current = localStorage.getItem(SUPERPASS_KEY) || DEFAULT_SUPERPASS;
-                if (deletePassInput === current) {
-                  setShowDeletePassPrompt(false);
-                  await performDelete();
-                } else {
-                  setDeletePassError('Incorrect password');
-                }
-              }} className="modal-btn modal-primary">Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showConfirm && (
         <div className="modal-overlay">
           <div className="modal-card">
             <h3>Confirm create</h3>
             <div>Account number preview: <strong>{previewAcctNumber}</strong></div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowConfirm(false)} className="modal-btn modal-cancel">Cancel</button>
+              <button type="button" onClick={() => { 
+                setShowConfirm(false); 
+                setShowAdd(true); 
+              }} className="modal-btn modal-cancel">Cancel</button>
               <button type="button" onClick={() => performCreate(previewAcctNumber)} className="modal-btn modal-primary">Create</button>
             </div>
           </div>

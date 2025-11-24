@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import AdminTransactionLogs from './AdminTransactionLogs/AdminTransactionLogs';
 import AdminUsers from './AdminUsers/AdminUsers';
 import AdminDashboard from './AdminDashboard/AdminDashboard';
+import { hashPassword, ADMIN_PASSWORD_HASH } from '../../utils/hashUtils';
 import './Admin.css';
 
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'admin123';
 
 export default function Admin() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -21,10 +21,11 @@ export default function Admin() {
     if (ok === 'true') setAuthenticated(true);
   }, []);
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e && e.preventDefault();
     setError('');
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const hashedPassword = await hashPassword(password);
+    if (username === ADMIN_USERNAME && hashedPassword === ADMIN_PASSWORD_HASH) {
       localStorage.setItem('admin_authenticated', 'true');
       setAuthenticated(true);
     } else {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal/Modal';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import OtpModal from '../OtpModal/OtpModal';
+import useOtp from '../../hooks/useOtp';
 import { supabase } from '../../utils/supabaseClient';
 import './BillPaymentModal.css';
 
@@ -12,10 +13,15 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [billerError, setBillerError] = useState('');
+  const [referenceError, setReferenceError] = useState('');
+  const [amountError, setAmountError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [sentOtp, setSentOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+  const { send: otpSend, resend: otpResend, verify: otpVerify, resendDisabled, resendTimer, lockRemaining } = useOtp({ prefix: 'cf_bill' });
   const [pendingDetails, setPendingDetails] = useState(null);
   const [showProcessing, setShowProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -27,7 +33,13 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!biller || !amount || !reference) return;
+    // per-field required validation
+    setBillerError(''); setReferenceError(''); setAmountError('');
+    let hasError = false;
+    if (!biller) { setBillerError('Biller is required'); hasError = true; }
+    if (!reference) { setReferenceError('Reference is required'); hasError = true; }
+    if (!amount) { setAmountError('Amount is required'); hasError = true; }
+    if (hasError) return;
     // prevent submitting when insufficient funds
     const payAmount = parseFloat(amount);
     if (senderBalance != null && !isNaN(payAmount) && payAmount > senderBalance) {
@@ -56,6 +68,9 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
     setShowProcessing(false);
     setShowReceipt(false);
     setReceiptTx(null);
+    setBillerError('');
+    setReferenceError('');
+    setAmountError('');
   };
 
   useEffect(() => {
@@ -80,78 +95,38 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
     };
     if (isOpen) fetchAccount();
     else {
-      // reset balance when modal closes
-      setSenderAccount(null);
-      setSenderBalance(null);
-      setError('');
+      // reset state when modal closes (clear messages and fields)
+      resetFields();
     }
   }, [isOpen]);
 
   const handleConfirm = async () => {
     setShowConfirm(false);
+    setOtpError('');
     setShowProcessing(true);
     try {
       const user_id = localStorage.getItem('user_id');
-      const { data: accountData, error: accountError } = await supabase
-        .from('accounts')
-        .select('id, balance')
-        .eq('user_id', user_id)
+      const { data: userData, error: userErr } = await supabase
+        .from('users')
+        .select('contact_number')
+        .eq('id', user_id)
         .single();
-
-      if (accountError || !accountData) {
-        throw new Error('Account not found or error fetching account.');
+      if (!userData || userErr || !userData.contact_number) {
+        setShowProcessing(false);
+        setError('No phone number found for sender.');
+        return;
       }
-
-      const payAmount = parseFloat(pendingDetails.amount);
-      if (accountData.balance < payAmount) {
-        throw new Error('Insufficient balance.');
-      }
-
-      // Deduct from sender's balance
-      const { error: updateError } = await supabase
-        .from('accounts')
-        .update({ balance: accountData.balance - payAmount })
-        .eq('id', accountData.id);
-
-      if (updateError) {
-        throw new Error('Failed to update balance.');
-      }
-
-      // Insert transaction record
-      const { data: transaction, error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          account_id: accountData.id,
-          amount: -payAmount,
-          description: `Bill Payment: ${pendingDetails.reference}`,
-          date: new Date().toISOString(),
-          transaction_status: 'Successfully Completed',
-          recipient_account_number: pendingDetails.reference,
-          type: 'bill payment',
-          type_id: 3,
-          remaining_balance: accountData.balance - payAmount,
-          bank: pendingDetails.biller,
-        })
-        .select()
-        .single();
-
-      if (txError) {
-        // Attempt to revert balance deduction if transaction logging fails
-        await supabase
-          .from('accounts')
-          .update({ balance: accountData.balance })
-          .eq('id', accountData.id);
-        throw new Error('Failed to record transaction.');
-      }
-
-      setReceiptTx(transaction);
-      setShowReceipt(true);
-      setSuccess('Bill payment successful!');
-    } catch (err) {
-      setError(err.message || 'Payment failed. Please try again.');
-    } finally {
+      setSenderPhone(userData.contact_number);
+      const res = await otpSend([userData.contact_number]);
       setShowProcessing(false);
-      setSubmitting(false);
+      if (res.ok) {
+        setShowOtp(true);
+      } else {
+        setError(res.message || 'Failed to send OTP.');
+      }
+    } catch (err) {
+      setShowProcessing(false);
+      setError('Failed to connect to OTP server.');
     }
   };
 
@@ -202,12 +177,13 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
 
   const handleOtpVerify = async (otp) => {
     setOtpError('');
-    if (!sentOtp) {
-      setOtpError('No OTP was sent.');
-      return;
-    }
-    if (otp !== sentOtp) {
-      setOtpError('Invalid OTP. Please try again.');
+    const res = await otpVerify(otp);
+    if (!res.ok) {
+      if (res.locked) {
+        setOtpError('Too many attempts. Please wait before trying again.');
+        return;
+      }
+      setOtpError(res.message || 'Invalid OTP. Please try again.');
       return;
     }
     setShowOtp(false);
@@ -273,7 +249,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen && !showConfirm && !showOtp && !showProcessing && !showReceipt} onClose={onClose}>
         <div style={{
           background: '#fff',
           borderRadius: '28px',
@@ -287,15 +263,15 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
           <div style={{ marginBottom: '2.5rem', textAlign: 'left' }}>
             <div style={{ fontSize: '2.2rem', fontWeight: 700, color: '#1751C5', fontFamily: 'inherit', lineHeight: 1.1 }}>Payment/Pay Bills</div>
           </div>
-          {error && <div style={{ color: '#e53935', marginBottom: 12, textAlign: 'center', fontWeight: 600 }}>{error}</div>}
-          {success && <div style={{ color: '#43a047', marginBottom: 12, textAlign: 'center', fontWeight: 600 }}>{success}</div>}
+          {error && <div style={{ color: '#e53935', marginBottom: 12, textAlign: 'center' }}>{error}</div>}
+          {success && <div style={{ color: '#43a047', marginBottom: 12, textAlign: 'center' }}>{success}</div>}
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '1.7rem' }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 10, fontSize: '1.05rem', color: '#222' }}>Choose Biller</label>
               <select
                 value={biller}
-                onChange={e => setBiller(e.target.value)}
-                required
+                    onChange={e => { setBiller(e.target.value); if (billerError) setBillerError(''); }}
+                
                 style={{
                   width: '100%',
                   padding: '1.1rem',
@@ -321,6 +297,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
                 <option value="Globe Telecom">Globe Telecom</option>
                 <option value="Smart Communications">Smart Communications</option>
               </select>
+              {billerError && <div style={{ color: '#e53935', marginTop: 8 }}>{billerError}</div>}
             </div>
             <div style={{ marginBottom: '1.7rem' }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 10, fontSize: '1.05rem', color: '#222' }}>Account Number/Reference Number</label>
@@ -333,6 +310,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
                 onChange={e => {
                   const digits = e.target.value.replace(/\D/g, '');
                   setReference(digits);
+                  if (referenceError) setReferenceError('');
                 }}
                 onKeyDown={(e) => {
                   const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
@@ -341,9 +319,10 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
                     e.preventDefault();
                   }
                 }}
-                required
+                
                 style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }}
               />
+              {referenceError && <div style={{ color: '#e53935', marginTop: 8 }}>{referenceError}</div>}
             </div>
             <div style={{ marginBottom: '2.7rem' }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 10, fontSize: '1.05rem', color: '#222' }}>Amount</label>
@@ -364,6 +343,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
                     v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
                   }
                   setAmount(v);
+                  if (amountError) setAmountError('');
                 }}
                 onKeyDown={(e) => {
                   const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
@@ -377,9 +357,10 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
                     e.preventDefault();
                   }
                 }}
-                required
+                
                 style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', border: '1.5px solid #D1D5DB', fontSize: '1.1rem', background: '#F9FAFB', color: '#222', boxSizing: 'border-box', outline: 'none' }}
               />
+              {amountError && <div style={{ color: '#e53935', marginTop: 8 }}>{amountError}</div>}
               {/* realtime insufficient balance warning (match FundTransfer style) */}
               {senderBalance != null && amount && (() => {
                 const amt = parseFloat(amount);
@@ -393,7 +374,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
               <button type="button" onClick={() => { resetFields(); onClose(); }} style={{ background: '#E5E7EB', color: '#222', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s' }}>Cancel</button>
               <button
                 type="submit"
-                disabled={loading || submitting || !amountValid || insufficient}
+                disabled={loading || submitting || insufficient}
                 style={{ background: '#1751C5', color: '#fff', border: 'none', borderRadius: '12px', padding: '1.1rem 2.8rem', fontWeight: 700, fontSize: '1.2rem', cursor: loading || submitting ? 'not-allowed' : 'pointer', opacity: loading || submitting ? 0.7 : 1, fontFamily: 'inherit', transition: 'background 0.2s' }}
               >
                 {submitting ? 'Processing...' : 'Confirm'}
@@ -403,7 +384,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
         </div>
       </Modal>
       {/* Confirmation Modal */}
-      {showConfirm && (
+      {showConfirm && !showOtp && !showProcessing && !showReceipt && (
         <ConfirmModal
           isOpen={showConfirm}
           onClose={() => setShowConfirm(false)}
@@ -417,16 +398,21 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
         />
       )}
       {/* OTP Modal */}
-      {showOtp && (
+      {showOtp && !showProcessing && !showReceipt && !showConfirm && (
         <OtpModal
           isOpen={showOtp}
           onClose={() => setShowOtp(false)}
           onVerify={handleOtpVerify}
           error={otpError}
+          onResend={() => otpResend([senderPhone])}
+          resendDisabled={resendDisabled}
+          timer={resendTimer}
+          verifyDisabled={lockRemaining > 0}
+          lockRemaining={lockRemaining}
         />
       )}
       {/* Processing Modal */}
-      {showProcessing && (
+      {showProcessing && !showReceipt && !showOtp && !showConfirm && (
         <Modal isOpen={showProcessing}>
           <div style={{ padding: '2vw', minWidth: 320, textAlign: 'center' }}>
             <div style={{ fontWeight: 700, fontSize: '1.5vw', color: '#1856c9', marginBottom: '1vw' }}>Processing Payment...</div>
@@ -437,7 +423,7 @@ const BillPaymentModal = ({ isOpen, onClose, onSubmit, loading }) => {
         </Modal>
       )}
       {/* Receipt Modal */}
-      {showReceipt && (
+      {showReceipt && !showProcessing && !showOtp && !showConfirm && (
         <Modal isOpen={showReceipt} onClose={() => {
           setShowReceipt(false);
           setReceiptTx(null);

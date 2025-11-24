@@ -40,7 +40,7 @@
 .input-wrap { position: relative; display:flex; align-items:center; }
 .input { width: 100%; padding: 13px 44px 13px 16px; border-radius: 8px; border: 1.5px solid #dbeafe; font-size: 16px; background: #fafdff; font-weight: 500; outline: none; }
 .input-icon { position: absolute; right: 14px; top: 10px; color: #b3bfcf; font-size: 20px; }
-.toggle { position: absolute; right: 12px; top: 12px; cursor: pointer; font-size: 20px; }
+.toggle { position: absolute; right: 8px; top: 12px; cursor: pointer; font-size: 20px; }
 .forgot { position: absolute; right: 44px; top: 10px; color: #1976d2; font-size: 14px; text-decoration: none; font-weight: 600; }
 
 .error { color: #e53935; margin-bottom: 12px; text-align: center; }

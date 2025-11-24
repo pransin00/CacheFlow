@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Modal from '../Modal/Modal';
 import { supabase } from '../../utils/supabaseClient';
+import useOtp from '../../hooks/useOtp';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import UnregisteredAccountModal from '../UnregisteredAccountModal/UnregisteredAccountModal';
 import OtpModal from '../OtpModal/OtpModal';
@@ -69,19 +70,35 @@ const SuccessModal = ({ isOpen, transaction, onClose }) => (
 const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   // Clear success message when modal is closed or opened for new transfer
   React.useEffect(() => {
-    if (!isOpen) setSuccess('');
+    if (!isOpen) {
+      try { resetFields(); } catch (e) {}
+      setSuccess('');
+    }
   }, [isOpen]);
   const [accountNumber, setAccountNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [amount, setAmount] = useState('');
+  const [accountError, setAccountError] = useState('');
+  const [amountError, setAmountError] = useState('');
   const [senderBalance, setSenderBalance] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
-  const [sentOtp, setSentOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
+  const [localOtpError, setLocalOtpError] = useState('');
+  // use shared OTP hook
+  const {
+    send: otpSend,
+    resend: otpResend,
+    verify: otpVerify,
+    reset: otpReset,
+    sentOtp,
+    resendDisabled,
+    resendTimer,
+    lockRemaining,
+    attempts: otpAttempts,
+  } = useOtp({ prefix: 'cf_ft', sendEndpoint: 'http://localhost:3001/api/send-otp' });
   const [pendingTransfer, setPendingTransfer] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successTx, setSuccessTx] = useState(null);
@@ -89,6 +106,8 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [recipientInitials, setRecipientInitials] = useState('');
   const [showUnregisteredModal, setShowUnregisteredModal] = useState(false);
   const [unregisteredDetails, setUnregisteredDetails] = useState(null);
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false);
+  const [unverifiedDetails, setUnverifiedDetails] = useState(null);
 
   // Get sender info from localStorage
   const senderUserId = localStorage.getItem('user_id');
@@ -122,21 +141,45 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     setAccountNumber('');
     setRemarks('');
     setAmount('');
+    setAccountError('');
+    setAmountError('');
     setError('');
     setSuccess('');
     setShowConfirm(false);
-    setShowOtp(false);
-    setSentOtp('');
-    setOtpError('');
     setPendingDetails(null);
     setShowUnregisteredModal(false);
     setUnregisteredDetails(null);
+    // reset otp hook state for fresh flows
+    try { otpReset(); } catch (e) {}
   };
 
   const handleTransfer = async () => {
     setError('');
-    if (!accountNumber || !amount || isNaN(Number(amount.replace(/,/g, '')))) {
-      setError('Please enter a valid account number and amount.');
+    setAccountError('');
+    setAmountError('');
+    // Validate account number and amount separately to provide specific messages
+    const sanitizedAcc = accountNumber ? accountNumber.replace(/\s/g, '') : '';
+    // per-field required validation
+    let hasError = false;
+    if (!sanitizedAcc) {
+      setAccountError('Account number is required');
+      hasError = true;
+    }
+    if (amount === null || amount === undefined || amount.toString().trim() === '') {
+      setAmountError('Amount is required');
+      hasError = true;
+    }
+    if (hasError) return;
+    // Parse amount defensively: accept strings or numbers, strip thousands separators
+    const parseAmount = (v) => {
+      if (v === null || v === undefined) return NaN;
+      const s = String(v).replace(/,/g, '').trim();
+      const n = Number(s);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const parsedAmount = parseAmount(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setAmountError('Please enter a valid amount');
       return;
     }
 
@@ -149,15 +192,32 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       setError('Sender not found.');
       return;
     }
-    // Check if recipient account exists and get masked name
-    const { data: recipientData, error: recipientErr } = await supabase
-      .from('accounts')
-      .select('user_id')
-      .eq('account_number', accountNumber.replace(/\s/g, ''))
-      .single();
+    // Normalize account number and guard empty
+    const sanitized = accountNumber.replace(/\s/g, '');
+    if (!sanitized) {
+      setAccountError('Please enter a valid account number.');
+      return;
+    }
+
+    // Check if recipient account exists and get masked name (safer: maybeSingle + catch)
+    let recipientData = null;
+    try {
+      const resp = await supabase
+        .from('accounts')
+        .select('user_id')
+        .eq('account_number', sanitized)
+        .maybeSingle();
+      recipientData = resp.data;
+      if (resp.error) {
+        // log for debugging and fall through to unregistered behavior
+        console.debug('recipient lookup error', resp.error);
+      }
+    } catch (err) {
+      console.debug('recipient lookup exception', err);
+    }
 
     let maskedName = '';
-    let recipientExists = !!recipientData && !recipientErr;
+    let recipientExists = !!recipientData;
     if (recipientExists) {
       // Get recipient's name for masking
       const { data: recipientUser } = await supabase
@@ -171,6 +231,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         // show masked initials like: I*** R**
         maskedName = `${firstInitial}*** ${lastInitial}**`;
       }
+      // No verification check: existing accounts proceed directly to balance check/confirmation
     }
 
     // Check sender balance
@@ -185,15 +246,16 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       return;
     }
 
-    const transferAmount = parseFloat(amount.replace(/,/g, ''));
+    const transferAmount = parsedAmount;
     if (senderAccount.balance < transferAmount) {
       setError('Insufficient balance.');
       return;
     }
 
+    // If recipient doesn't exist (or lookup errored), show Unregistered modal now
     if (!recipientExists) {
       setUnregisteredDetails({
-        accountNumber: accountNumber.replace(/\s/g, ''),
+        accountNumber: sanitized,
         amount: transferAmount,
         remarks,
       });
@@ -210,102 +272,92 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     setShowConfirm(true);
   };
 
-  // After user confirms, process transfer directly (OTP DISABLED)
+  // After user confirms, send OTP to sender and show OTP modal (using shared hook)
   const handleConfirm = async () => {
     setShowConfirm(false);
-    setPendingTransfer(true);
-    const tx = await processTransfer();
-    setPendingTransfer(false);
-    if (tx) {
-      setSuccessTx(tx);
-      setShowSuccess(true);
-    }
-    setPendingDetails(null);
-  };
-
-  /*
-  // After user confirms, send OTP to the sender's phone (logged-in user) and show OTP modal
-  const handleConfirm = async () => {
-  setShowConfirm(false);
-  setOtpError('');
-  setLoading(true); // Start loading before OTP request
-  try {
-      // Get sender's account using logged-in user_id
-      const { data: senderAccount, error: senderErr } = await supabase
-        .from('accounts')
-        .select('user_id')
-        .eq('user_id', senderUserId)
-        .single();
-      console.log('DEBUG: senderUserId:', senderUserId, 'senderAccount:', senderAccount, 'error:', senderErr);
-      if (!senderAccount || senderErr) {
-        setError('Sender account not found.');
-        return;
-      }
-      // Get sender's phone/contact_number from users table
+    setLocalOtpError('');
+    setLoading(true);
+    try {
       const { data: userData, error: userErr } = await supabase
         .from('users')
         .select('contact_number')
         .eq('id', senderUserId)
         .single();
-      console.log('DEBUG: userData:', userData, 'userErr:', userErr);
+      setLoading(false);
       if (!userData || userErr) {
         setError('No phone number found for sender.');
         return;
       }
       const senderPhone = userData.contact_number;
-      console.log('DEBUG: senderPhone:', senderPhone);
       if (!senderPhone) {
         setError('No phone number found for sender.');
         return;
       }
-      const response = await fetch('http://localhost:3001/api/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumbers: [senderPhone] })
-      });
-      const result = await response.json();
-      setLoading(false); // Stop loading after response
-      if (response.ok && result.otp) {
-        setSentOtp(result.otp);
+      const result = await otpSend([senderPhone]);
+      if (result.ok) {
         setShowOtp(true);
       } else {
-        setError('Failed to send OTP.');
+        setError(result.message || 'Failed to send OTP.');
       }
     } catch (err) {
-      setLoading(false); // Stop loading on error
+      setLoading(false);
       setError('Failed to connect to OTP server.');
     }
   };
-  */
 
-  // After OTP is entered, validate and process transfer
-  const handleOtpVerify = async (otp) => {
-    setOtpError('');
-    if (!sentOtp) {
-      setOtpError('No OTP was sent.');
-      return;
+  const handleResend = async () => {
+    // use shared hook resend
+    setLocalOtpError('');
+    try {
+      const { data: userData, error: userErr } = await supabase
+        .from('users')
+        .select('contact_number')
+        .eq('id', senderUserId)
+        .single();
+      if (!userData || userErr || !userData.contact_number) {
+        setLocalOtpError('No phone number found for sender.');
+        return;
+      }
+      const result = await otpResend([userData.contact_number]);
+      if (!result.ok) {
+        if (result.locked) setLocalOtpError('Too many attempts. Please wait.');
+        else if (result.cooldown) setLocalOtpError('Please wait before resending.');
+        else setLocalOtpError(result.message || 'Failed to resend OTP.');
+      }
+    } catch (err) {
+      setLocalOtpError('Failed to connect to OTP server.');
     }
-    if (otp !== sentOtp) {
-      setOtpError('Invalid OTP. Please try again.');
-      return;
-    }
-    setShowOtp(false);
-    setPendingTransfer(true);
-    const tx = await processTransfer();
-    setPendingTransfer(false);
-    if (tx) {
-      setSuccessTx(tx);
-      setShowSuccess(true);
-    }
-    setPendingDetails(null);
   };
+
+  const handleOtpVerify = async (otp) => {
+    setLocalOtpError('');
+    const result = await otpVerify(otp);
+    if (result.ok) {
+      setShowOtp(false);
+      setPendingTransfer(true);
+      const tx = await processTransfer();
+      setPendingTransfer(false);
+      if (tx) {
+        setSuccessTx(tx);
+        setShowSuccess(true);
+      }
+      setPendingDetails(null);
+      return;
+    }
+    if (result.locked) {
+      setLocalOtpError(`Too many attempts. Please wait ${result.remaining || 60} seconds.`);
+      return;
+    }
+    setLocalOtpError(result.message || 'Invalid OTP. Please try again.');
+    return;
+  };
+
 
   const processTransfer = async () => {
     setError('');
     setSuccess('');
     // Hide all modals except processing
     setShowConfirm(false);
-    setShowOtp(false);
     setLoading(true);
     // Fetch sender account
     const { data: senderAccount, error: senderErr } = await supabase
@@ -404,7 +456,14 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   };
 
   // compute amount validity and insufficiency for disabling submit and showing messages
-  const amtVal = parseFloat(amount || '0');
+  // use same defensive parser for UI checks
+  const parseAmountForUi = (v) => {
+    if (v === null || v === undefined) return NaN;
+    const s = String(v).replace(/,/g, '').trim();
+    const n = Number(s);
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const amtVal = parseAmountForUi(amount || '0');
   const amountValid = amount && !isNaN(amtVal) && amtVal > 0;
   const insufficient = senderBalance !== null && amountValid && amtVal > senderBalance;
 
@@ -431,7 +490,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       )}
     <>
       {/* Main Fund Transfer Modal (hidden during processing/success) */}
-      <Modal isOpen={isOpen && !pendingTransfer && !showSuccess} onClose={onClose}>
+      <Modal isOpen={isOpen && !pendingTransfer && !showSuccess && !showUnregisteredModal && !showUnverifiedModal && !showConfirm && !showOtp} onClose={onClose}>
         <div style={{
           padding: '2.5vw 2.5vw 2vw 2.5vw',
           minWidth: 380,
@@ -469,6 +528,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                   // Allow only digits (strip letters and symbols) and limit to 8 characters
                   const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
                   setAccountNumber(digits);
+                  if (accountError) setAccountError('');
                 }}
                 onKeyDown={(e) => {
                   // allow control keys: backspace, tab, arrows, delete
@@ -486,6 +546,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                 disabled={loading}
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
+              {accountError && <div style={{ color: '#e53935', marginTop: '0.5vw', fontSize: '0.9vw' }}>{accountError}</div>}
             </div>
 
             <div style={{ marginBottom: '2vw' }}>
@@ -509,11 +570,13 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                     v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
                   }
                   setAmount(v);
+                  if (amountError) setAmountError('');
                 }}
                 disabled={loading}
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
               {/* realtime insufficient balance warning */}
+              {amountError && <div style={{ color: '#e53935', marginTop: '0.5vw', fontSize: '0.9vw' }}>{amountError}</div>}
               {senderBalance !== null && amount && (() => {
                 const amt = parseFloat(amount);
                 if (!isNaN(amt) && amt > senderBalance) {
@@ -528,10 +591,11 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                 type="text"
                 placeholder="Enter remarks (optional)"
                 value={remarks}
-                onChange={e => setRemarks(e.target.value)}
+                onChange={e => { setRemarks(e.target.value); }}
                 disabled={loading}
                 style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
               />
+              
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1vw' }}>
               <button type="button" onClick={() => { resetFields(); onClose(); }} disabled={loading} style={{
@@ -546,7 +610,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
               }}>Cancel</button>
-              <button type="submit" disabled={loading || pendingTransfer || !amountValid || insufficient} style={{
+              <button type="submit" disabled={loading || pendingTransfer} style={{
                 background: '#1856c9',
                 color: '#fff',
                 border: 'none',
@@ -564,7 +628,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       </Modal>
       {/* Confirmation Modal */}
       <ConfirmModal
-        isOpen={showConfirm && !pendingTransfer && !showSuccess}
+        isOpen={showConfirm && !pendingTransfer && !showSuccess && !showOtp && !showUnverifiedModal}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleConfirm}
         details={{
@@ -574,16 +638,91 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
           remarks: pendingDetails?.remarks
         }}
       />
+      {/* Unverified Account Modal */}
+      {showUnverifiedModal && !pendingTransfer && !showSuccess && !showConfirm && !showOtp && (
+        <Modal isOpen={showUnverifiedModal} onClose={() => setShowUnverifiedModal(false)}>
+          <div style={{
+            padding: '2vw 2vw 1vw 2vw',
+            minWidth: 320,
+            maxWidth: 400,
+            width: '100%',
+            borderRadius: '1vw',
+            background: '#fff',
+            boxShadow: '0 8px 40px rgba(10,60,255,0.10)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}>
+            <div style={{
+              fontWeight: 700,
+              fontSize: '1.5vw',
+              color: '#e53935',
+              marginBottom: '1vw',
+              alignSelf: 'flex-start',
+              fontFamily: 'inherit',
+            }}>Account Not Verified</div>
+            <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
+              <div><b>Account Number:</b> {unverifiedDetails?.accountNumber}</div>
+              {unverifiedDetails?.maskedName && <div><b>Name:</b> {unverifiedDetails.maskedName}</div>}
+              <div style={{ marginTop: '1vw' }}>
+                This recipient account is not marked as verified. Sending funds to unverified accounts may be risky. Do you want to continue?
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <button type="button" onClick={() => { setShowUnverifiedModal(false); setUnverifiedDetails(null); }} style={{
+                background: '#e0e0e0',
+                color: '#222',
+                border: 'none',
+                borderRadius: '0.7vw',
+                padding: '1vw 2vw',
+                fontWeight: 600,
+                fontSize: '1vw',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+              }}>Cancel</button>
+              <button type="button" onClick={() => {
+                // continue anyway: set pending details and show confirm
+                setShowUnverifiedModal(false);
+                setPendingDetails({
+                  accountNumber: unverifiedDetails.accountNumber,
+                  maskedName: unverifiedDetails.maskedName || '',
+                  amount: unverifiedDetails.amount,
+                  remarks: unverifiedDetails.remarks,
+                });
+                setShowConfirm(true);
+              }} style={{
+                background: '#1856c9',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '0.7vw',
+                padding: '1vw 2vw',
+                fontWeight: 600,
+                fontSize: '1vw',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(24,86,201,0.10)'
+              }}>Continue Anyway</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {/* Show loading spinner before OTP modal if loading */}
-      {loading && !showOtp && !pendingTransfer && !showSuccess && (
+      {loading && !pendingTransfer && !showSuccess && (
         <ProcessingModal isOpen={true} />
       )}
       <OtpModal
-        isOpen={showOtp && !pendingTransfer && !showSuccess}
+        isOpen={showOtp && !pendingTransfer && !showSuccess && !showConfirm && !showUnverifiedModal}
         onClose={() => setShowOtp(false)}
         onVerify={handleOtpVerify}
-        error={otpError}
+        onResend={handleResend}
+        resendDisabled={resendDisabled || (lockRemaining && lockRemaining > 0)}
+        timer={resendTimer}
+        error={localOtpError}
+        verifyDisabled={(lockRemaining && lockRemaining > 0)}
+        lockRemaining={lockRemaining}
       />
+      
       <ProcessingModal isOpen={pendingTransfer} />
   <SuccessModal isOpen={showSuccess} transaction={successTx} onClose={() => {
       setShowSuccess(false);

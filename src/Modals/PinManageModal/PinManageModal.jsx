@@ -1,30 +1,64 @@
 import React, { useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 
-const PinField = ({ value, onChange, label, error }) => (
+const PinField = ({ value, onChange, label, error, showPin, toggleShowPin }) => (
   <div style={{ marginBottom: '1rem' }}>
     <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666' }}>
       {label}:
     </label>
-    <input
-      type="password"
-      maxLength="4"
-      value={value}
-      onChange={(e) => {
-        const val = e.target.value.replace(/\D/g, '');
-        if (val.length <= 4) onChange(val);
-      }}
-      style={{
-        width: '100%',
-        padding: '0.8rem',
-        borderRadius: '8px',
-        border: `1px solid ${error ? '#ff4444' : '#ddd'}`,
-        fontSize: '1rem',
-        boxSizing: 'border-box',
-        textAlign: 'center',
-        letterSpacing: '0.5rem',
-      }}
-    />
+    <div style={{ position: 'relative' }}>
+      <input
+        type={showPin ? "text" : "password"}
+        maxLength="4"
+        value={value}
+        onChange={(e) => {
+          const val = e.target.value.replace(/\D/g, '');
+          if (val.length <= 4) onChange(val);
+        }}
+        style={{
+          width: '100%',
+          padding: '0.8rem',
+          paddingRight: '3rem',
+          borderRadius: '8px',
+          border: `1px solid ${error ? '#ff4444' : '#ddd'}`,
+          fontSize: '1rem',
+          boxSizing: 'border-box',
+          textAlign: 'center',
+          letterSpacing: '0.5rem',
+        }}
+      />
+      <button
+        type="button"
+        onClick={toggleShowPin}
+        style={{
+          position: 'absolute',
+          right: '10px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#666',
+        }}
+        aria-label="Toggle PIN visibility"
+      >
+        {showPin ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        )}
+      </button>
+    </div>
     {error && (
       <div style={{ color: '#ff4444', fontSize: '0.85rem', marginTop: '0.25rem' }}>
         {error}
@@ -39,6 +73,9 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
+  const [showOldPin, setShowOldPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
 
   const handleVerify = async () => {
     if (oldPin !== currentPin) {
@@ -106,6 +143,8 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
             value={oldPin}
             onChange={setOldPin}
             error={error}
+            showPin={showOldPin}
+            toggleShowPin={() => setShowOldPin(!showOldPin)}
           />
         ) : (
           <>
@@ -114,12 +153,16 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
               value={newPin}
               onChange={setNewPin}
               error={error && error.includes('4 digits') ? error : ''}
+              showPin={showNewPin}
+              toggleShowPin={() => setShowNewPin(!showNewPin)}
             />
             <PinField
               label="Confirm New PIN"
               value={confirmPin}
               onChange={setConfirmPin}
               error={error && error.includes('match') ? error : ''}
+              showPin={showConfirmPin}
+              toggleShowPin={() => setShowConfirmPin(!showConfirmPin)}
             />
           </>
         )}

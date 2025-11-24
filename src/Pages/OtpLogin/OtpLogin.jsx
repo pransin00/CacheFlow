@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
+import { hashPassword, ADMIN_PASSWORD_HASH } from '../../utils/hashUtils';
 import logo from '../../assets/CacheFlow_Logo.png';
+import viewPng from '../../assets/view.png';
+import hidePng from '../../assets/hide.png';
 import './OtpLogin.css';
 
 function generateOTP() {
@@ -14,6 +17,7 @@ const OtpLogin = () => {
   const [step, setStep] = useState('login'); // 'login' | 'otp'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [sentOtp, setSentOtp] = useState('');
   const [timer, setTimer] = useState(45);
@@ -23,7 +27,14 @@ const OtpLogin = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [userId, setUserId] = useState('');
   const [info, setInfo] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
+  const [attempts, setAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState(null);
+  const [remaining, setRemaining] = useState(0);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [otpLockUntil, setOtpLockUntil] = useState(null);
+  const [otpRemaining, setOtpRemaining] = useState(0);
+  const [resendClicked, setResendClicked] = useState(false);
+  
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -53,37 +64,73 @@ const OtpLogin = () => {
     e.preventDefault();
     setError('');
     setInfo('');
-    setDebugInfo('Login form submitted...');
+    
     setLoading(true);
 
     // Short-circuit admin login: redirect directly to /admin without OTP
-    if (username === 'admin' && password === 'admin123') {
-      localStorage.setItem('admin_authenticated', 'true');
+    if (username === 'admin') {
+      const hashedPassword = await hashPassword(password);
+      if (hashedPassword === ADMIN_PASSWORD_HASH) {
+        localStorage.setItem('admin_authenticated', 'true');
+        setLoading(false);
+        navigate('/admin');
+        return;
+      }
+    }
+
+    // respect lockout
+    if (lockUntil && Date.now() < lockUntil) {
+      setError(`Too many failed attempts. Try again in ${Math.ceil((lockUntil - Date.now()) / 1000)}s`);
       setLoading(false);
-      navigate('/admin');
       return;
     }
+
+    // Field validation: show specific messages for blank fields
+    if (!username || username.trim() === '') {
+      setError('Username is required');
+      setLoading(false);
+      return;
+    }
+    if (!password || password.trim() === '') {
+      setError('Password is required');
+      setLoading(false);
+      return;
+    }
+
+    // Hash the password before querying
+    const hashedPassword = await hashPassword(password);
 
     // Check username/password in Supabase
     const { data, error: loginError } = await supabase
       .from('users')
       .select('id, contact_number')
       .eq('username', username)
-      .eq('password', password)
+      .eq('password', hashedPassword)
       .single();
 
-    setDebugInfo(`Database query: ${data ? 'User found' : 'No user found'}`);
+    
 
     if (loginError || !data) {
-      setError('Invalid username or password');
-      setDebugInfo('Login failed - invalid credentials');
+      // increment attempts (only count actual auth attempts)
+      const next = attempts + 1;
+      setAttempts(next);
+      localStorage.setItem('cf_login_attempts', String(next));
+      if (next >= 3) {
+        const until = Date.now() + 60_000; // 1 minute lock
+        setLockUntil(until);
+        localStorage.setItem('cf_login_lock_until', String(until));
+        setRemaining(60);
+        setError('Too many failed attempts. Try again in 60s');
+      } else {
+        setError('Invalid username or password');
+      }
       setLoading(false);
       return;
     }
 
     if (!data.contact_number || data.contact_number.trim() === '') {
       setError('No contact number is associated with this account.');
-      setDebugInfo('Login failed - no contact number found for user.');
+      
       setLoading(false);
       return;
     }
@@ -91,7 +138,13 @@ const OtpLogin = () => {
     const trimmedContactNumber = data.contact_number.trim();
     setContactNumber(trimmedContactNumber);
     setUserId(data.id);
-    setDebugInfo(`Contact number: ${trimmedContactNumber}`);
+
+    // reset attempts on successful authentication
+    setAttempts(0);
+    localStorage.removeItem('cf_login_attempts');
+    setLockUntil(null);
+    localStorage.removeItem('cf_login_lock_until');
+    
 
     // Request backend to generate and send the OTP
     try {
@@ -106,19 +159,17 @@ const OtpLogin = () => {
       if (response.ok && result.otp) {
         setSentOtp(result.otp);
         setTimer(45);
+        setResendClicked(false);
         setStep('otp');
         setInfo('OTP sent to your phone.');
-        setDebugInfo('SMS sent successfully. OTP received for verification.');
       } else {
-        setError('Failed to send OTP.');
-        setDebugInfo(result.error || 'An unknown error occurred while sending OTP.');
+          setError('Failed to send OTP.');
         setInfo('');
       }
     } catch (err) {
       setError('Failed to connect to the server.');
-      setDebugInfo(`Connection error: ${err.message}`);
       setInfo('');
-      console.error('Server connection error:', err);
+      // console.error intentionally removed to avoid leaking debug logs in UI
     }
     setLoading(false);
   };
@@ -129,6 +180,14 @@ const OtpLogin = () => {
     setLoading(true);
 
     try {
+      // don't allow resend while OTP lock is active
+      if (otpLockUntil && Date.now() < otpLockUntil) {
+        setError(`Resend disabled. Try again in ${otpRemaining}s`);
+        setLoading(false);
+        return;
+      }
+      // mark resend clicked immediately so link disappears
+      setResendClicked(true);
       const response = await fetch('http://localhost:3001/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,30 +200,145 @@ const OtpLogin = () => {
         setSentOtp(result.otp);
         setTimer(45);
         setInfo('OTP resent to your phone.');
+        // keep resendClicked true so link remains hidden until timer resets
       } else {
         setError('Failed to resend OTP.');
         setInfo('');
+        setResendClicked(false);
       }
     } catch (err) {
       setError('Failed to connect to the server.');
       setInfo('');
-      console.error('Server connection error:', err);
+      setResendClicked(false);
     }
     setLoading(false);
   };
+
+  // initialize attempts/lock from localStorage
+  useEffect(() => {
+    const a = parseInt(localStorage.getItem('cf_login_attempts') || '0', 10) || 0;
+    const until = parseInt(localStorage.getItem('cf_login_lock_until') || '0', 10) || null;
+    setAttempts(a);
+    if (until && until > Date.now()) {
+      setLockUntil(until);
+      setRemaining(Math.ceil((until - Date.now()) / 1000));
+    } else {
+      localStorage.removeItem('cf_login_lock_until');
+    }
+    // init otp attempts/lock
+    const oa = parseInt(localStorage.getItem('cf_otp_attempts') || '0', 10) || 0;
+    const ountil = parseInt(localStorage.getItem('cf_otp_lock_until') || '0', 10) || null;
+    setOtpAttempts(oa);
+    if (ountil && ountil > Date.now()) {
+      setOtpLockUntil(ountil);
+      setOtpRemaining(Math.ceil((ountil - Date.now()) / 1000));
+    } else {
+      localStorage.removeItem('cf_otp_lock_until');
+    }
+    // clear resendClicked state when component mounts or lock state is stale
+    setResendClicked(false);
+  }, []);
+
+  // countdown effect while locked
+  useEffect(() => {
+    if (!lockUntil) return;
+    const iv = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setRemaining(rem);
+      if (rem <= 0) {
+        setLockUntil(null);
+        setAttempts(0);
+        localStorage.removeItem('cf_login_attempts');
+        localStorage.removeItem('cf_login_lock_until');
+        clearInterval(iv);
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [lockUntil]);
+
+  // countdown effect while otp locked
+  useEffect(() => {
+    if (!otpLockUntil) return;
+    const iv = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((otpLockUntil - Date.now()) / 1000));
+      setOtpRemaining(rem);
+      if (rem <= 0) {
+        setOtpLockUntil(null);
+        setOtpAttempts(0);
+        localStorage.removeItem('cf_otp_attempts');
+        localStorage.removeItem('cf_otp_lock_until');
+        // unlock resend link when otp lock ends
+        setResendClicked(false);
+        clearInterval(iv);
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [otpLockUntil]);
+
+  // when the resend cooldown timer reaches zero, allow the Resend link again
+  useEffect(() => {
+    if (timer === 0 && !otpLockUntil) {
+      setResendClicked(false);
+    }
+  }, [timer, otpLockUntil]);
+
+  // keep error message as the live countdown while locked
+  useEffect(() => {
+    if (lockUntil && remaining > 0) {
+      setError(`Too many failed attempts. Try again in ${remaining}s`);
+    } else if (!lockUntil) {
+      setError(prev => (prev && prev.startsWith('Too many failed attempts') ? '' : prev));
+    }
+  }, [lockUntil, remaining]);
+
+  // show otp lock countdown in the error box when OTP locked
+  useEffect(() => {
+    if (otpLockUntil && otpRemaining > 0) {
+      setError(`Too many invalid codes. Try again in ${otpRemaining}s`);
+    } else if (!otpLockUntil) {
+      setError(prev => (prev && prev.startsWith('Too many invalid codes') ? '' : prev));
+    }
+  }, [otpLockUntil, otpRemaining]);
 
   const handleVerify = (e) => {
     e.preventDefault();
     setError('');
     const entered = otp.join('').trim();
     const expected = (sentOtp || '').toString().trim();
-    setDebugInfo(`Entered: ${entered} · Expected: ${expected ? '••••••' : '(none)'}`);
+    if (entered === '') {
+      setError('OTP required');
+      return;
+    }
+
+    // respect OTP lockout
+    if (otpLockUntil && Date.now() < otpLockUntil) {
+      setError(`Too many invalid codes. Try again in ${otpRemaining}s`);
+      return;
+    }
+
     if (entered === expected && expected !== '') {
       setSuccess(true);
       localStorage.setItem('user_id', userId);
+      // reset otp attempts on success
+      setOtpAttempts(0);
+      localStorage.removeItem('cf_otp_attempts');
+      setOtpLockUntil(null);
+      localStorage.removeItem('cf_otp_lock_until');
       setTimeout(() => navigate('/dashboard'), 1000);
     } else {
-      setError('Invalid code');
+      // increment otp attempts
+      const next = otpAttempts + 1;
+      setOtpAttempts(next);
+      localStorage.setItem('cf_otp_attempts', String(next));
+      if (next >= 3) {
+        const until = Date.now() + 60_000; // 1 minute
+        setOtpLockUntil(until);
+        localStorage.setItem('cf_otp_lock_until', String(until));
+        setOtpRemaining(60);
+        setError('Too many invalid codes. Try again in 60s');
+      } else {
+        setError('Invalid code');
+      }
     }
   };
 
@@ -180,12 +354,19 @@ const OtpLogin = () => {
             <form onSubmit={handleLogin} className="otp-form">
               <div className="otp-title">Login</div>
               <div className="otp-sub">Enter your username and password to continue</div>
-              <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="otp-input" />
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="otp-input" />
-              <button type="submit" disabled={loading} className="otp-button">{loading ? 'Sending OTP...' : 'Send OTP'}</button>
+              <div className="input-wrap">
+                <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="otp-input" />
+                <span className="input-icon">👤</span>
+              </div>
+              <div className="input-wrap">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="otp-input" />
+                <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(p => !p)} className="password-toggle">
+                  <img src={showPassword ? hidePng : viewPng} alt={showPassword ? 'Hide' : 'Show'} className="password-toggle-img" />
+                </button>
+              </div>
+              <button type="submit" disabled={loading || (lockUntil && Date.now() < lockUntil)} className="otp-button">{loading ? 'Sending OTP...' : 'Login'}</button>
               {error && <div className="otp-error">{error}</div>}
               {info && <div className="otp-info">{info}</div>}
-              {debugInfo && <div className="otp-debug">{debugInfo}</div>}
             </form>
           )}
 
@@ -208,9 +389,17 @@ const OtpLogin = () => {
                   />
                 ))}
               </div>
-              <div className="otp-timer">0:{timer.toString().padStart(2, '0')} remaining</div>
-              <button type="submit" disabled={loading || success} className="otp-button">Verify Text</button>
-              <div className="otp-resend">Didn’t receive the code? <span className={`otp-resend-link ${timer === 0 ? 'enabled' : 'disabled'}`} onClick={() => timer === 0 && handleSendOtp()}>Resend</span></div>
+              {!otpLockUntil && (
+                <div className="otp-timer">0:{timer.toString().padStart(2, '0')} remaining</div>
+              )}
+              <button type="submit" disabled={loading || success || (otpLockUntil && Date.now() < otpLockUntil)} className="otp-button">Verify Text</button>
+              <div className="otp-resend">Didn’t receive the code? {
+                (!resendClicked && timer === 0 && !otpLockUntil) ? (
+                  <span className={`otp-resend-link enabled`} onClick={() => handleSendOtp()}>Resend</span>
+                ) : (
+                  resendClicked ? <span className="otp-resend-requested">Resend requested</span> : <span className="otp-resend-disabled">Resend</span>
+                )
+              }</div>
               {error && <div className="otp-error">{error}</div>}
               {success && <div className="otp-success">Verified! Login successful.</div>}
             </form>

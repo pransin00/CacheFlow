@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../utils/supabaseClient";
+import { hashPassword } from "../../utils/hashUtils";
 import logo from "../../assets/CacheFlow_Logo.png";
 import "./Login.css";
 
@@ -8,34 +9,118 @@ const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState(null);
+  const [remaining, setRemaining] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
+    // respect lockout
+    if (lockUntil && Date.now() < lockUntil) {
+      setError(`Too many failed attempts. Try again in ${Math.ceil((lockUntil - Date.now()) / 1000)}s`);
+      return;
+    }
+    // Validate required fields
+    if (!username || username.trim() === '') {
+      setError('Username is required');
+      return;
+    }
+    if (!password || password.trim() === '') {
+      setError('Password is required');
+      return;
+    }
+
+    // Hash the password before querying
+    const hashedPassword = await hashPassword(password);
+
     const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("username", username)
-      .eq("password", password)
+      .eq("password", hashedPassword)
       .single();
     if (error || !data) {
-      setError("Invalid username or password");
+      // increment attempts
+      const next = attempts + 1;
+      setAttempts(next);
+      localStorage.setItem('cf_login_attempts', String(next));
+      if (next >= 3) {
+        const until = Date.now() + 60_000; // 1 minute
+        setLockUntil(until);
+        localStorage.setItem('cf_login_lock_until', String(until));
+        setRemaining(60);
+        setError('Too many failed attempts. Try again in 60s');
+      } else {
+        setError("Invalid username or password");
+      }
       return;
     }
     localStorage.setItem('user_id', data.id);
     if (data.contact_number) {
       localStorage.setItem('user_phone', data.contact_number);
       navigate('/otp-login');
+      // reset attempt counters on success
+      setAttempts(0);
+      localStorage.removeItem('cf_login_attempts');
+      setLockUntil(null);
+      localStorage.removeItem('cf_login_lock_until');
     } else if (data.phone) {
       localStorage.setItem('user_phone', data.phone);
       navigate('/otp-login');
+      // reset attempt counters on success
+      setAttempts(0);
+      localStorage.removeItem('cf_login_attempts');
+      setLockUntil(null);
+      localStorage.removeItem('cf_login_lock_until');
     } else {
       setError('No contact number found for user.');
       return;
     }
   }
+
+  // initialize attempts/lock from localStorage
+  React.useEffect(() => {
+    const a = parseInt(localStorage.getItem('cf_login_attempts') || '0', 10) || 0;
+    const until = parseInt(localStorage.getItem('cf_login_lock_until') || '0', 10) || null;
+    setAttempts(a);
+    if (until && until > Date.now()) {
+      setLockUntil(until);
+      setRemaining(Math.ceil((until - Date.now()) / 1000));
+    } else {
+      // clear stale lock
+      localStorage.removeItem('cf_login_lock_until');
+    }
+  }, []);
+
+  // countdown effect while locked
+  React.useEffect(() => {
+    if (!lockUntil) return;
+    const iv = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setRemaining(rem);
+      if (rem <= 0) {
+        setLockUntil(null);
+        setAttempts(0);
+        localStorage.removeItem('cf_login_attempts');
+        localStorage.removeItem('cf_login_lock_until');
+        clearInterval(iv);
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [lockUntil]);
+
+  // keep error message as the live countdown while locked
+  React.useEffect(() => {
+    if (lockUntil && remaining > 0) {
+      setError(`Too many failed attempts. Try again in ${remaining}s`);
+    } else if (!lockUntil) {
+      // if the current error is the lock message, clear it when lock ends
+      setError(prev => (prev && prev.startsWith('Too many failed attempts') ? '' : prev));
+    }
+  }, [lockUntil, remaining]);
 
   return (
     <div className="login-root">
@@ -81,7 +166,7 @@ const Login = () => {
               </div>
 
               {error && <div className="error">{error}</div>}
-              <button type="submit" className="btn-submit">Login</button>
+              <button type="submit" className="btn-submit" disabled={lockUntil && Date.now() < lockUntil}>Login</button>
             </form>
             <div className="register-cta">
               Don’t Have an Account? <a href="#">Register</a>

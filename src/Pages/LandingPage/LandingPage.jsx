@@ -9,6 +9,12 @@ import investIcon from "../../assets/invest.png";
 import billIcon from "../../assets/bill.png";
 import historyIcon from "../../assets/history.png";
 import "./LandingPage.css";
+import francineImg from "../../assets/profile/francine.png";
+import piereImg from "../../assets/profile/piere.jpg";
+import ianImg from "../../assets/profile/ian.jpg";
+import jdImg from "../../assets/profile/jd.jpg";
+import matthewImg from "../../assets/profile/matthew.jpg";
+import djImg from "../../assets/profile/dj.jpg";
 
 const services = [
   {
@@ -27,12 +33,6 @@ const services = [
     icon: transferIcon,
     title: "Transfer funds",
     desc: "Move money effortlessly between your own accounts or to other people. CacheFlow ensures fast, secure transfers with instant confirmation, giving you peace of mind and convenience for all your transactions.",
-    color: "#e53935"
-  },
-  {
-    icon: investIcon,
-    title: "Investment services",
-    desc: "Take your money further with CacheFlow’s investment services. Explore smart investment options, monitor your portfolio, track returns, and make informed decisions—all from one convenient platform, helping you grow your wealth safely and effectively.",
     color: "#e53935"
   },
   {
@@ -118,7 +118,11 @@ const LandingPage = () => {
                   alignItems: "flex-start",
                   gap: 24,
                   padding: 32,
-                  marginBottom: 0
+                  marginBottom: 0,
+                  gridColumn: i === services.length - 1 && services.length % 2 !== 0 ? "1 / -1" : "auto",
+                  maxWidth: i === services.length - 1 && services.length % 2 !== 0 ? "480px" : "none",
+                  marginLeft: i === services.length - 1 && services.length % 2 !== 0 ? "auto" : "0",
+                  marginRight: i === services.length - 1 && services.length % 2 !== 0 ? "auto" : "0"
                 }}>
                   <img src={s.icon} alt="icon" style={{ width: 48, height: 48, marginTop: 4 }} />
                   <div>
@@ -189,12 +193,12 @@ const LandingPage = () => {
 
 const TeamSlideshow = () => {
   const team = [
-    { name: 'John Smith', role: 'Company CEO', color: '#ffd5c2' },
-    { name: 'David Johnson', role: 'Co-Founder', color: '#ffd0dd' },
-    { name: 'Mary Johnson', role: 'Product Manager', color: '#dbeeff' },
-    { name: 'Patricia Davis', role: 'Estate Consultant', color: '#ffe7d1' },
-    { name: 'Alex Turner', role: 'Frontend Engineer', color: '#e6f7ff' },
-    { name: 'Sophia Martinez', role: 'Backend Engineer', color: '#fbe7f0' }
+    { name: 'Francine Yzabel L. Jonson', role: 'Team Lead', img: francineImg, color: '#ffd5c2' },
+    { name: 'Piere Paolo B. Bilugan', role: 'Business Analyst', img: piereImg, color: '#ffd0dd' },
+    { name: 'Ian Vince A. Romero', role: 'Main Developer', img: ianImg, color: '#dbeeff' },
+    { name: 'John Dave Botonnes', role: 'Lead QA', img: jdImg, color: '#ffe7d1' },
+    { name: 'Matthew Alen Pereyra', role: 'Developer', img: matthewImg, color: '#e6f7ff' },
+    { name: 'Dane Joshia Dimafelix', role: 'QA', img: djImg, color: '#fbe7f0' }
   ];
 
   const CARD_WIDTH = 360; // px
@@ -261,7 +265,13 @@ const TeamSlideshow = () => {
             <div key={`${m.name}-${idx}`} className="slide-card" style={{ width: CARD_WIDTH }}>
               <div className="slide-top" style={{ height: 260, background: m.color }}>
                 <div className="slide-top-deco" />
-                <div className="avatar">{m.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
+                <div className="avatar">
+                  {m.img ? (
+                    <img src={m.img} alt={m.name} className="avatar-img" />
+                  ) : (
+                    m.name.split(' ').map(n => n[0]).slice(0, 2).join('')
+                  )}
+                </div>
               </div>
 
               <div className="slide-body">

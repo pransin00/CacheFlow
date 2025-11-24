@@ -170,16 +170,18 @@ const Dashboard = () => {
         <div className="main-top-row">
           <div className="page-title">Overview</div>
           <div className="user-area">
-            <div className="user-name">
-              {user && user.firstname && user.lastname ? `${user.firstname} ${user.lastname}` : ''}
+              <div className="user-info">
+                <div className="user-name">
+                  {user && user.firstname && user.lastname ? `${user.firstname} ${user.lastname}` : ''}
+                </div>
+                <div className="account-number">{account ? account.account_number : '1234567890'}</div>
+              </div>
+              {user && user.firstname && user.lastname && (
+                <span className="initials" onClick={() => navigate('/profile')} title={`${user.firstname} ${user.lastname}`}>
+                  {user.firstname[0]}{user.lastname[0]}
+                </span>
+              )}
             </div>
-            <div className="account-number">{account ? account.account_number : '1234567890'}</div>
-            {user && user.firstname && user.lastname && (
-              <span className="initials" onClick={() => navigate('/profile')} title={`${user.firstname} ${user.lastname}`}>
-                {user.firstname[0]}{user.lastname[0]}
-              </span>
-            )}
-          </div>
         </div>
 
         <div className="main-row">

@@ -5,7 +5,7 @@ import { divIcon } from 'leaflet';
 import logo from '../../assets/CacheFlow_Logo.png';
 import logoutIcon from '../../assets/logout.png';
 import Sidebar from '../../share/Sidebar/Sidebar';
-import CardlessWithdrawalModal from '../../Modals/CardlessWithdrawalModal/CardlessWithdrawalModal.jsx';
+import CardlessWithdrawalModal from '../../Modals/CardlessWithdrawalModal/CardlessWithdrawalModal';
 import { locations } from '../../utils/locations';
 import './Maps.css';
 

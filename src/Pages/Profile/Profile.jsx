@@ -14,6 +14,7 @@ const Profile = () => {
   const [user, setUser] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '' });
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -35,6 +36,8 @@ const Profile = () => {
 
   const handlePinSuccess = (newPin) => {
     setUser((prev) => ({ ...(prev || {}), pin: newPin }));
+    setToast({ visible: true, message: 'PIN updated successfully' });
+    setTimeout(() => setToast({ visible: false, message: '' }), 3500);
   };
 
   const openPinModal = () => setShowPinModal(true);
@@ -107,7 +110,18 @@ const Profile = () => {
       )}
 
       {showResetModal && (
-        <ResetPassword onClose={() => setShowResetModal(false)} onSuccess={() => {}} />
+        <ResetPassword
+          onClose={() => setShowResetModal(false)}
+          onSuccess={() => {
+            setToast({ visible: true, message: 'Password updated successfully' });
+            setTimeout(() => setToast({ visible: false, message: '' }), 3500);
+            setShowResetModal(false);
+          }}
+        />
+      )}
+
+      {toast.visible && (
+        <div className="profile-toast" role="status" aria-live="polite">{toast.message}</div>
       )}
     </div>
   );

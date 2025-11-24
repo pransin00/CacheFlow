@@ -4,6 +4,7 @@ import logo from '../../assets/CacheFlow_Logo.png';
 import Sidebar from '../../share/Sidebar/Sidebar';
 import { supabase } from '../../utils/supabaseClient';
 import logoutIcon from '../../assets/logout.png';
+import Modal from '../../Modals/Modal/Modal';
 import './Transactions.css';
 
 // use shared Sidebar component for consistent navigation
@@ -19,6 +20,8 @@ const Transactions = () => {
   const [weekDate, setWeekDate] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const calendarRef = useRef(null);
+  const [sortField, setSortField] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   // close popup when clicking outside
   useEffect(() => {
@@ -317,6 +320,42 @@ const Transactions = () => {
     };
   }, [weekDate, categoryFilter]);
 
+  // Sort transactions based on sortField and sortDirection
+  const sortedTransactions = React.useMemo(() => {
+    const sorted = [...transactions];
+    sorted.sort((a, b) => {
+      let aVal, bVal;
+      
+      if (sortField === 'date') {
+        aVal = new Date(a.date || 0).getTime();
+        bVal = new Date(b.date || 0).getTime();
+      } else if (sortField === 'amount') {
+        aVal = Math.abs(a.amount || 0);
+        bVal = Math.abs(b.amount || 0);
+      } else {
+        return 0;
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal - bVal;
+      } else {
+        return bVal - aVal;
+      }
+    });
+    return sorted;
+  }, [transactions, sortField, sortDirection]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to descending
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
   
 
   return (
@@ -371,15 +410,25 @@ const Transactions = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1vw', background: '#fff', borderRadius: '1vw', boxShadow: '0 2px 12px rgba(10,60,255,0.06)' }}>
             <thead>
               <tr style={{ background: '#e6edfa', color: '#1856c9', fontWeight: 700 }}>
-                <th style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'left' }}>Date</th>
+                <th 
+                  onClick={() => handleSort('date')}
+                  style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'left' }}>Type</th>
-                <th style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'right' }}>Amount</th>
+                <th 
+                  onClick={() => handleSort('amount')}
+                  style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Amount {sortField === 'amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'left' }}>Status</th>
                 <th style={{ padding: '0.7vw', borderBottom: '1px solid #e6edfa', textAlign: 'left' }}>Reference</th>
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx) => {
+              {sortedTransactions.map((tx) => {
                 const isWithdrawal = Number(tx.type_id) === 4 || (tx.transaction_types?.name || tx.type || '').toString().toLowerCase().includes('withdrawal');
                 const signChar = isWithdrawal ? '-' : (tx.amount < 0 ? '-' : '+');
                 const amountAbs = Math.abs(tx.amount || 0);
@@ -420,15 +469,68 @@ const Transactions = () => {
             </tbody>
           </table>
         )}
-        {/* Transaction details panel */}
+        {/* Transaction details modal */}
         {selectedTx && (
-          <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fff8e1', borderRadius: 8, border: '1px solid #ffe082' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 700 }}>Transaction Details</div>
-              <button onClick={() => setSelectedTx(null)} style={{ background: 'transparent', border: 'none', color: '#1976d2', cursor: 'pointer' }}>Close</button>
+          <Modal isOpen={true} onClose={() => setSelectedTx(null)}>
+            <div style={{ background: '#fff', padding: '1.25rem', borderRadius: 12, width: '92%', maxWidth: 820, boxSizing: 'border-box', boxShadow: '0 12px 48px rgba(10,20,60,0.12)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontWeight: 800, color: '#0b61ff' }}>Transaction Details</div>
+                <button onClick={() => setSelectedTx(null)} style={{ background: 'transparent', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 700 }}>Close</button>
+              </div>
+              <div style={{ marginTop: '0.75rem', maxHeight: '60vh', overflowY: 'auto' }}>
+                {(() => {
+                  const tx = selectedTx || {};
+                  const date = tx.date ? new Date(tx.date).toLocaleString() : '-';
+                  const type = (tx.transaction_types && tx.transaction_types.name) || tx.type || '-';
+                  const status = tx.transaction_status || '-';
+                  const amountRaw = Number(tx.amount || 0);
+                  const isDebit = amountRaw < 0 || Number(tx.type_id) === 4 || (type || '').toString().toLowerCase().includes('withdrawal');
+                  const sign = isDebit ? '-' : '+';
+                  const amount = Math.abs(amountRaw).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  const amountColor = isDebit ? '#e53935' : '#43a047';
+                  const description = tx.description || tx.note || '-';
+                  const reference = tx.id || '-';
+                  const bank = tx.bank || '-';
+                  const code = tx.code || '-';
+                  const expires = tx.expires_at ? new Date(tx.expires_at).toLocaleString() : '-';
+                  const remaining = tx.remaining_balance !== undefined && tx.remaining_balance !== null ? Number(tx.remaining_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+
+                  const row = (label, value, valueStyle) => (
+                    <div style={{ display: 'flex', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+                      <div style={{ flex: '0 0 160px', color: '#64748b', fontWeight: 700 }}>{label}</div>
+                      <div style={{ flex: 1, color: valueStyle?.color || '#0f172a' }}>{value}</div>
+                    </div>
+                  );
+
+                  // Build rows conditionally: only show fields with meaningful values
+                  const rowsToShow = [];
+                  // Always show these core fields
+                  rowsToShow.push(row('Date', date));
+                  rowsToShow.push(row('Type', type));
+                  rowsToShow.push(row('Status', status));
+                  rowsToShow.push(row('Amount', <span style={{ color: amountColor, fontWeight: 800 }}>{sign}{amount}</span>));
+                  rowsToShow.push(row('Reference', reference));
+
+                  // Optional fields: only include them when present (not null/empty)
+                  if (description && description !== '-') rowsToShow.push(row('Description', description));
+                  if (bank && bank !== '-') rowsToShow.push(row('Bank / Location', bank));
+
+                  // Show code/expires only for withdrawals (type_id 4 or textual match)
+                  const showsWithdrawal = Number(tx.type_id) === 4 || (type || '').toString().toLowerCase().includes('withdrawal');
+                  if (showsWithdrawal && code && code !== '-') rowsToShow.push(row('Code', code));
+                  if (showsWithdrawal && tx.expires_at) rowsToShow.push(row('Expires At', expires));
+
+                  if (remaining !== '-') rowsToShow.push(row('Remaining Balance', remaining));
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {rowsToShow.map((r, i) => <div key={i}>{r}</div>)}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-            <pre style={{ whiteSpace: 'pre-wrap', marginTop: '0.5rem', fontSize: '0.85rem' }}>{JSON.stringify(selectedTx, null, 2)}</pre>
-          </div>
+          </Modal>
         )}
       </div>
     </div>

@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import Modal from '../Modal/Modal';
 
-const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, timer }) => {
+const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, timer, verifyDisabled, lockRemaining }) => {
   const [otp, setOtp] = useState('');
   const [localError, setLocalError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setLocalError('');
+    if (verifyDisabled) {
+      setLocalError('Too many attempts. Please wait before trying again.');
+      return;
+    }
     if (!otp || otp.length < 4) {
       setLocalError('Please enter a valid OTP.');
       return;
@@ -38,7 +42,11 @@ const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, 
           fontFamily: 'inherit',
         }}>Enter OTP</div>
         <form style={{ width: '100%' }} onSubmit={handleSubmit}>
-          {(localError || error) && <div style={{ color: 'red', marginBottom: '1vw', fontWeight: 500 }}>{localError || error}</div>}
+          {/* Show lock countdown prominently if locked; otherwise show any local/server error */}
+          {(lockRemaining && lockRemaining > 0) ? (
+            <div style={{ color: 'red', marginBottom: '1vw', fontWeight: 700 }}>Too many attempts. Locked for {lockRemaining} second{lockRemaining !== 1 ? 's' : ''}.</div>
+          ) : ((localError || error) && <div style={{ color: 'red', marginBottom: '1vw', fontWeight: 500 }}>{localError || error}</div>)}
+
           <input
             type="text"
             placeholder="Enter OTP"
@@ -47,7 +55,8 @@ const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, 
             style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginBottom: '1.5vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.3vw' }}
             maxLength={6}
           />
-          {typeof timer === 'number' && <div style={{ color: '#666', marginBottom: '1vw' }}>0:{String(timer).padStart(2, '0')} remaining</div>}
+          {/* Hide resend timer while locked (lockRemaining > 0) to avoid redundant countdowns */}
+          {(typeof timer === 'number' && (!lockRemaining || lockRemaining <= 0)) && <div style={{ color: '#666', marginBottom: '1vw' }}>0:{String(timer).padStart(2, '0')} remaining</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" onClick={onClose} style={{
@@ -62,20 +71,20 @@ const OtpModal = ({ isOpen, onClose, onVerify, error, onResend, resendDisabled, 
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
               }}>Cancel</button>
-              <button type="button" onClick={onResend} disabled={resendDisabled} style={{
-                background: resendDisabled ? '#f3f4f6' : '#fff',
+              <button type="button" onClick={onResend} disabled={resendDisabled || (lockRemaining && lockRemaining > 0)} style={{
+                background: (resendDisabled || (lockRemaining && lockRemaining > 0)) ? '#f3f4f6' : '#fff',
                 color: '#222',
                 border: '1px solid #d6d6d6',
                 borderRadius: '0.7vw',
                 padding: '1vw 2vw',
                 fontWeight: 600,
                 fontSize: '1vw',
-                cursor: resendDisabled ? 'not-allowed' : 'pointer',
+                cursor: (resendDisabled || (lockRemaining && lockRemaining > 0)) ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
               }}>{resendDisabled ? 'Resend' : 'Resend'}</button>
             </div>
-            <button type="submit" style={{
+            <button type="submit" disabled={verifyDisabled || (lockRemaining && lockRemaining > 0)} style={{
               background: '#1856c9',
               color: '#fff',
               border: 'none',

@@ -7,7 +7,15 @@
 .otp-form { background:#fff; border-radius:2vw; box-shadow:0 2px 16px #0001; padding:3vw 3vw 2vw 3vw; min-width:420px; max-width:480px; width:32vw; display:flex; flex-direction:column; align-items:center; }
 .otp-title { font-weight:700; font-size:1.7vw; color:#1a3185; margin-bottom:1vw; align-self:flex-start; }
 .otp-sub { color:#6b6b6b; font-size:1vw; margin-bottom:2vw; align-self:flex-start; }
-.otp-input { width:100%; margin-bottom:12px; padding:8px; font-size:1.1vw; border-radius:8px; border:1.5px solid #e0e0e0; background:#fafdff; font-weight:500; }
+.input-wrap { position: relative; display: flex; align-items: center; width: 100%; margin-bottom: 12px; }
+.otp-input { width:100%; padding: 13px 44px 13px 16px; font-size:1.1vw; border-radius:8px; border:1.5px solid #e0e0e0; background:#fafdff; font-weight:500; }
+.input-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #b3bfcf; font-size: 1.1vw; }
+.password-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.1vw; }
+.password-toggle-img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
 .otp-button { width:100%; padding:0.9vw 0; background:#1a3185; color:#fff; border:none; border-radius:0.5vw; font-weight:600; font-size:1.1vw; margin-bottom:1vw; cursor:pointer; }
 .otp-inputs { display:flex; gap:1vw; margin-bottom:1.5vw; }
 .otp-digit { width:3vw; height:3vw; font-size:2vw; text-align:center; border:1.5px solid #e0e0e0; border-radius:0.7vw; background:#fafdff; outline:none; font-weight:700; }

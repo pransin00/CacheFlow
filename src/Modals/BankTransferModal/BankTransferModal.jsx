@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Modal from "../Modal/Modal";
 import { supabase } from "../../utils/supabaseClient";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import OtpModal from "../OtpModal/OtpModal";
+import useOtp from '../../hooks/useOtp';
 import './BankTransferModal.css';
 
 const ProcessingModal = ({ isOpen }) => (
@@ -65,8 +67,13 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   const [successDetails, setSuccessDetails] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
-  const [sentOtp, setSentOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+  const { send: otpSend, resend: otpResend, verify: otpVerify, resendDisabled, resendTimer, lockRemaining } = useOtp({ prefix: 'cf_bank' });
+  const [amountError, setAmountError] = useState(''); // inline error for Amount field
+  const [bankError, setBankError] = useState('');
+  const [accountNumberError, setAccountNumberError] = useState('');
+  const [accountNameError, setAccountNameError] = useState('');
   const [otpLoading, setOtpLoading] = useState(false); // loading before OTP
   // Get sender info from localStorage
   const senderUserId = localStorage.getItem('user_id');
@@ -85,6 +92,21 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   };
 
   const [senderBalance, setSenderBalance] = useState(null);
+  const navigate = useNavigate();
+
+  const handleCancel = () => {
+    try {
+      resetFields();
+    } catch (err) {
+      // ignore
+    }
+    if (typeof onClose === 'function') onClose();
+    try {
+      navigate('/dashboard');
+    } catch (e) {
+      // ignore navigation errors in non-router contexts
+    }
+  };
 
   useEffect(() => {
     // fetch sender balance when modal opens
@@ -95,103 +117,80 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       else setSenderBalance(null);
     };
     fetchBalance();
-    if (!isOpen) setSenderBalance(null);
+    if (!isOpen) {
+      // reset all fields and messages when modal is closed
+      try { resetFields(); } catch (e) {}
+      setSenderBalance(null);
+    }
   }, [isOpen]);
 
   // Show confirmation modal before OTP/processing
   const handleTransfer = async () => {
     setError('');
-    if (!bank || !accountNumber || !accountName || !amount) {
-      setError('Please fill in all fields.');
-      return;
+    setAmountError('');
+    setBankError('');
+    setAccountNumberError('');
+    setAccountNameError('');
+
+    // per-field required validation
+    let hasError = false;
+    if (!bank) {
+      setBankError('Bank is required');
+      hasError = true;
     }
+    if (!accountNumber) {
+      setAccountNumberError('Account number is required');
+      hasError = true;
+    }
+    if (!accountName) {
+      setAccountNameError('Account name is required');
+      hasError = true;
+    }
+    if (!amount) {
+      setAmountError('Amount is required');
+      hasError = true;
+    }
+    if (hasError) return;
+
     if (isNaN(Number(amount)) || Number(amount) <= 0) {
-      setError('Enter a valid amount.');
+      setAmountError('Enter a valid amount.');
       return;
     }
     if (accountNumber.length !== accountNumberLength) {
-      setError(`Account number must be exactly ${accountNumberLength} digits.`);
+      setAccountNumberError(`Account number must be exactly ${accountNumberLength} digits.`);
       return;
     }
     setShowConfirm(true);
   };
 
-  // After confirm, process transfer directly (OTP DISABLED)
+  // After confirm, send OTP to the sender's phone and show OTP modal
   const handleConfirm = async () => {
     setShowConfirm(false);
-    setProcessing(true);
-
-    // --- Start of original transfer logic from handleOtpVerify ---
-    const senderAccount = await fetchSenderAccount();
-    if (!senderAccount) {
-      setProcessing(false);
-      setError('Unable to fetch your account.');
-      return;
+    setOtpError('');
+    setOtpLoading(true);
+    try {
+      const { data: userData, error: userErr } = await supabase
+        .from('users')
+        .select('contact_number')
+        .eq('id', senderUserId)
+        .single();
+      if (!userData || userErr || !userData.contact_number) {
+        setOtpLoading(false);
+        setError('No phone number found for sender.');
+        return;
+      }
+      setSenderPhone(userData.contact_number);
+      const res = await otpSend([userData.contact_number]);
+      setOtpLoading(false);
+      if (res.ok) {
+        setShowOtp(true);
+      } else {
+        setError(res.message || 'Failed to send OTP.');
+      }
+    } catch (err) {
+      setOtpLoading(false);
+      setError('Failed to connect to OTP server.');
     }
-    const totalDeduct = Number(amount) + 15;
-    if (senderAccount.balance < totalDeduct) {
-      setProcessing(false);
-      setError('Insufficient balance for this transfer (including ₱15 fee).');
-      return;
-    }
-    let typeName = 'Bank Transfer';
-    const { data: typeData } = await supabase
-      .from('transaction_types')
-      .select('name')
-      .eq('id', 2)
-      .single();
-    if (typeData && typeData.name) typeName = typeData.name;
-
-    const { error: updateErr } = await supabase
-      .from('accounts')
-      .update({ balance: senderAccount.balance - totalDeduct })
-      .eq('id', senderAccount.id);
-    if (updateErr) {
-      setProcessing(false);
-      setError('Failed to deduct from your account.');
-      return;
-    }
-
-    const newBalance = senderAccount.balance - totalDeduct;
-    const { data: tx, error: txErr } = await supabase
-      .from('transactions')
-      .insert([{
-        account_id: senderAccount.id,
-        amount: -totalDeduct,
-        type_id: 2,
-        type: typeName,
-        date: new Date().toISOString(),
-        description: `${typeName} to ${bank} - ${accountNumber} (${accountName}), fee: ₱15`,
-        transaction_status: 'Successfully Completed',
-        bank: bank,
-        recipient_account_number: accountNumber,
-        remaining_balance: newBalance,
-      }])
-      .select()
-      .single();
-
-    if (txErr) {
-      setProcessing(false);
-      setError('Failed to record transaction.');
-      return;
-    }
-
-    setProcessing(false);
-    setSuccess(true);
-    setSuccessDetails({
-      bank,
-      accountNumber,
-      accountName,
-      amount,
-      date: tx.date,
-      reference: tx.id,
-    });
-
-    setBank('');
-    setAccountNumber('');
-    setAccountName('');
-    setAmount('');
-    // --- End of original transfer logic ---
   };
 
   /*
@@ -241,16 +240,17 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   // After OTP is entered, validate and process transfer
   const handleOtpVerify = async (otp) => {
     setOtpError('');
-    if (!sentOtp) {
-      setOtpError('No OTP was sent.');
+    const res = await otpVerify(otp);
+    if (!res.ok) {
+      if (res.locked) {
+        setOtpError('Too many attempts. Please wait before trying again.');
+        return;
+      }
+      setOtpError(res.message || 'Invalid OTP. Please try again.');
       return;
     }
-    if (otp !== sentOtp) {
-      setOtpError('Invalid OTP. Please try again.');
-      return;
-    }
-  setShowOtp(false);
-  setProcessing(true);
+    setShowOtp(false);
+    setProcessing(true);
     // --- original transfer logic below ---
     // Fetch sender account
     const senderAccount = await fetchSenderAccount();
@@ -371,6 +371,10 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
     setAccountNumber('');
     setAccountName('');
     setAmount('');
+    setAmountError('');
+    setBankError('');
+    setAccountNumberError('');
+    setAccountNameError('');
     setError('');
     setSuccess(false);
     setSuccessDetails(null);
@@ -383,7 +387,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen && !showConfirm && !showOtp && !otpLoading && !processing && !success} onClose={onClose}>
         <div style={{
           padding: '2.5vw 2.5vw 2vw 2.5vw',
           minWidth: 520,
@@ -413,7 +417,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
           <div style={{ position: 'relative', width: '100%' }}>
             <select
               value={bank}
-              onChange={e => setBank(e.target.value)}
+              onChange={e => { setBank(e.target.value); if (bankError) setBankError(''); }}
               style={{
                 width: '100%',
                 padding: '1vw 2.5vw 1vw 1vw',
@@ -449,6 +453,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
             }}>
               ▼
             </span>
+            {bankError && <div style={{ color: '#e53935', marginTop: '0.3vw', fontSize: '0.9vw' }}>{bankError}</div>}
           </div>
         </div>
 
@@ -460,11 +465,14 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
             placeholder="Enter account name"
             value={accountName}
             onChange={e => {
-              const v = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+              // allow letters, spaces and dot (.) in account name
+              const v = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
               setAccountName(v);
+              if (accountNameError) setAccountNameError('');
             }}
             style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
           />
+          {accountNameError && <div style={{ color: '#e53935', marginTop: '0.3vw', fontSize: '0.9vw' }}>{accountNameError}</div>}
         </div>
 
         {/* Account Number (left) */}
@@ -478,15 +486,18 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
             onChange={e => {
               const val = e.target.value.replace(/\D/g, '');
               setAccountNumber(val.slice(0, accountNumberLength));
+              if (accountNumberError) setAccountNumberError('');
             }}
             style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
             disabled={!bank}
           />
-          {bank && accountNumber && accountNumber.length !== accountNumberLength && (
+          {accountNumberError ? (
+            <div style={{ color: '#e53935', fontSize: '0.9vw', marginTop: '0.3vw' }}>{accountNumberError}</div>
+          ) : (bank && accountNumber && accountNumber.length !== accountNumberLength && (
             <div style={{ color: '#e53935', fontSize: '0.9vw', marginTop: '0.3vw' }}>
               Account number must be exactly {accountNumberLength} digits.
             </div>
-          )}
+          ))}
         </div>
 
         {/* Amount (right) */}
@@ -507,6 +518,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
                 v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
               }
               setAmount(v);
+              if (amountError) setAmountError('');
             }}
             onKeyDown={(e) => {
               const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
@@ -521,6 +533,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
             }}
             style={{ width: '100%', padding: '1vw', border: '1.5px solid #d6d6d6', borderRadius: '0.7vw', fontSize: '1.1vw', marginTop: '0.3vw', outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#222', boxSizing: 'border-box' }}
           />
+          {amountError && <div style={{ color: '#e53935', marginTop: '0.35vw', fontSize: '0.9vw' }}>{amountError}</div>}
           {senderBalance !== null && amount && (() => {
             const amt = parseFloat(amount);
             if (!isNaN(amt) && (amt + 15) > senderBalance) {
@@ -531,7 +544,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         </div>
       </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1vw' }}>
-              <button type="button" onClick={() => { resetFields(); onClose(); }} style={{
+              <button type="button" onClick={handleCancel} style={{
                 background: '#e0e0e0',
                 color: '#222',
                 border: 'none',
@@ -545,7 +558,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
               }}>Cancel</button>
               <button
                 type="submit"
-                disabled={processing || otpLoading || !amountValid || insufficient || !accountName || accountNumber.length !== accountNumberLength || !bank}
+                disabled={processing || otpLoading || insufficient}
                 style={{
                 background: '#1856c9',
                 color: '#fff',
@@ -557,7 +570,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
                 cursor: processing || otpLoading ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(24,86,201,0.10)',
-                opacity: processing || otpLoading || !amountValid || insufficient ? 0.7 : 1,
+                opacity: processing || otpLoading || insufficient ? 0.7 : 1,
               }}>
                 Confirm
               </button>
@@ -567,7 +580,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
       </Modal>
       {/* Confirm Modal */}
       <ConfirmModal
-        isOpen={showConfirm}
+        isOpen={showConfirm && !showOtp && !otpLoading && !processing && !success}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleConfirm}
         details={{
@@ -583,10 +596,15 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
         <ProcessingModal isOpen={true} />
       )}
       <OtpModal
-        isOpen={showOtp}
+        isOpen={showOtp && !processing && !success && !showConfirm && !otpLoading}
         onClose={() => setShowOtp(false)}
         onVerify={handleOtpVerify}
         error={otpError}
+        onResend={() => otpResend([senderPhone])}
+        resendDisabled={resendDisabled}
+        timer={resendTimer}
+        verifyDisabled={lockRemaining > 0}
+        lockRemaining={lockRemaining}
       />
       {/* Processing Modal */}
       <ProcessingModal isOpen={processing} />

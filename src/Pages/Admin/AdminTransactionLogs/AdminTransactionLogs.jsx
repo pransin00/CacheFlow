@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
+import { hashPassword, SUPERPASS_HASH } from '../../../utils/hashUtils';
 import './AdminTransactionLogs.css';
 
 export default function AdminTransactionLogs() {
@@ -7,12 +8,20 @@ export default function AdminTransactionLogs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filterDate, setFilterDate] = useState('');
-  // superpassword for viewing details
-  const SUPERPASS_KEY = 'admin_superpassword';
-  const DEFAULT_SUPERPASS = 'admin12345';
+  // superpassword for viewing details - now uses hashed password
+  const SUPERPASS_KEY = 'admin_superpassword_hash';
+  const [superPassHash, setSuperPassHash] = useState(() => {
+    const stored = localStorage.getItem(SUPERPASS_KEY);
+    if (!stored) {
+      localStorage.setItem(SUPERPASS_KEY, SUPERPASS_HASH);
+      return SUPERPASS_HASH;
+    }
+    return stored;
+  });
   const [showPassPrompt, setShowPassPrompt] = useState(false);
   const [passInput, setPassInput] = useState('');
   const [passError, setPassError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [pendingTx, setPendingTx] = useState(null);
   // details modal
   const [showDetails, setShowDetails] = useState(false);
@@ -210,17 +219,59 @@ export default function AdminTransactionLogs() {
       {showPassPrompt && (
         <div className="modal-overlay">
           <div className="modal-card">
-            <h3>Enter superpassword to view</h3>
-            <div className="modal-row">
-              <input className="modal-input" value={passInput} onChange={e => setPassInput(e.target.value)} type="password" placeholder="Superpassword" />
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Enter superpassword to view</h3>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 8 }}>Superadmin Password</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  className="modal-input" 
+                  value={passInput} 
+                  onChange={e => setPassInput(e.target.value)} 
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter superadmin password"
+                  style={{ paddingRight: '40px', width: '100%', boxSizing: 'border-box' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#666'
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
-            {passError && <div className="modal-error">{passError}</div>}
+            {passError && <div className="modal-error" style={{ marginBottom: 16 }}>{passError}</div>}
             <div className="modal-actions">
-              <button type="button" onClick={() => { setShowPassPrompt(false); setPendingTx(null); setPassInput(''); setPassError(''); }} className="modal-btn modal-cancel">Cancel</button>
+              <button type="button" onClick={() => { setShowPassPrompt(false); setPendingTx(null); setPassInput(''); setPassError(''); setShowPassword(false); }} className="modal-btn modal-cancel">Cancel</button>
               <button type="button" onClick={async () => {
-                const current = localStorage.getItem(SUPERPASS_KEY) || DEFAULT_SUPERPASS;
-                if (passInput === current) {
+                const hashedInput = await hashPassword(passInput);
+                if (hashedInput === superPassHash) {
                   setShowPassPrompt(false);
+                  setShowPassword(false);
                   const tx = pendingTx; setPendingTx(null);
                   if (tx) await loadTransactionDetails(tx);
                 } else {

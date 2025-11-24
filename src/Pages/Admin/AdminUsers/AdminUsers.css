@@ -35,4 +35,4 @@
 .modal-primary { background: #0a3cff; color: #fff }
 .modal-input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #e6eefc }
 .modal-error { color: #d32f2f; margin-top: 8px }
-.au-toast { position: fixed; right: 12px; bottom: 12px; background: #0a3cff; color: #fff; padding: 8px 12px; border-radius: 8px }
+.au-toast { position: fixed; right: 12px; bottom: 12px; background: #0a3cff; color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 100001; }

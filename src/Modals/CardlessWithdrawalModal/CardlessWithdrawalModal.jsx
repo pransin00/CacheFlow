@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { locations } from '../../utils/locations';
 import { supabase } from '../../utils/supabaseClient';
+import useOtp from '../../hooks/useOtp';
 
 const smallMarkerHtml = (type, hasCardless) => `
   <div style="
@@ -26,6 +27,11 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
   const [pin, setPin] = useState('');
   const [generatedCode, setGeneratedCode] = useState(null);
   const [error, setError] = useState('');
+  const [amountError, setAmountError] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [withdrawalAmount, setWithdrawalAmount] = useState(null);
+  const [transactionId, setTransactionId] = useState(null);
 
   // Locations that support cardless withdrawal
   const cardlessLocations = locations.filter(l => l.hasCardless);
@@ -44,9 +50,43 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     }
   }, [atmName]);
 
+  // Check for existing withdrawal code on mount
+  useEffect(() => {
+    const storedWithdrawal = localStorage.getItem('cf_active_withdrawal');
+    if (storedWithdrawal) {
+      try {
+        const data = JSON.parse(storedWithdrawal);
+        const expiresAt = new Date(data.expiresAt).getTime();
+        const now = Date.now();
+        
+        if (now < expiresAt) {
+          // Still valid, restore the withdrawal
+          const secondsLeft = Math.floor((expiresAt - now) / 1000);
+          setGeneratedCode(data.code);
+          setWithdrawalAmount(data.amount);
+          setTimeRemaining(secondsLeft);
+          setTransactionId(data.transactionId);
+          
+          // Update selected location if stored
+          if (data.locationName) {
+            const found = cardlessLocations.find(l => l.name === data.locationName);
+            if (found) setSelectedLocation(found);
+          }
+        } else {
+          // Expired, clear it
+          localStorage.removeItem('cf_active_withdrawal');
+        }
+      } catch (e) {
+        console.error('Failed to parse stored withdrawal:', e);
+        localStorage.removeItem('cf_active_withdrawal');
+      }
+    }
+  }, []);
+
   // sender info & balance
   const senderUserId = localStorage.getItem('user_id');
   const [senderBalance, setSenderBalance] = useState(null);
+  const { send: otpSend, resend: otpResend, verify: otpVerify, resendDisabled, resendTimer, lockRemaining } = useOtp({ prefix: 'cf_cw' });
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -68,60 +108,163 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     fetchBalance();
   }, [senderUserId, selectedLocation]);
 
+  // Countdown timer for generated code
+  useEffect(() => {
+    if (timeRemaining === null) return;
+    
+    if (timeRemaining <= 0) {
+      // Time expired - already handled in interval callback
+      localStorage.removeItem('cf_active_withdrawal');
+      handleClose();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Time expired - mark as Successful and deduct balance
+          if (transactionId && withdrawalAmount) {
+            (async () => {
+              try {
+                const userId = localStorage.getItem('user_id');
+                if (!userId) return;
+
+                // Get current account balance
+                const { data: accData, error: accErr } = await supabase
+                  .from('accounts')
+                  .select('id, balance')
+                  .eq('user_id', userId)
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (accErr || !accData) {
+                  console.error('Failed to fetch account for balance deduction:', accErr);
+                  return;
+                }
+
+                const newBalance = accData.balance - withdrawalAmount;
+
+                // Update account balance
+                await supabase
+                  .from('accounts')
+                  .update({ balance: newBalance })
+                  .eq('id', accData.id);
+
+                // Update transaction status to Successful
+                await supabase
+                  .from('transactions')
+                  .update({ 
+                    transaction_status: 'Successful',
+                    remaining_balance: newBalance
+                  })
+                  .eq('id', transactionId);
+
+                window.dispatchEvent(new CustomEvent('transactions:refresh'));
+              } catch (err) {
+                console.error('Failed to process successful withdrawal:', err);
+              }
+            })();
+          }
+          localStorage.removeItem('cf_active_withdrawal');
+          handleClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeRemaining, transactionId, withdrawalAmount]);
+
   // amount validity computations
   const amtVal = parseFloat(amount || '0');
   const amountValid = amount && !isNaN(amtVal) && amtVal > 0;
   const insufficient = senderBalance !== null && amountValid && amtVal > senderBalance;
 
   const handleGenerate = () => {
-    if (!amount || !pin) {
-      setError('Please fill in all fields');
-      return;
+    // clear previous errors
+    setAmountError('');
+    setPinError('');
+    setError('');
+
+    let hasError = false;
+    if (!amount) {
+      setAmountError('Amount is required');
+      hasError = true;
     }
+    if (!pin) {
+      setPinError('PIN is required');
+      hasError = true;
+    }
+    if (hasError) return;
 
     if (pin.length !== 4) {
-      setError('PIN must be 4 digits');
+      setPinError('PIN must be 4 digits');
       return;
     }
 
-    // OTP DISABLED: Skip PIN check and proceed with code generation.
-    // The PIN check logic is commented out below.
-
-    const withdrawalCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // insert a pending transaction into the DB with a 10-minute expiry
+    // Verify PIN before generating withdrawal code
     (async () => {
       try {
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
         const requestedAmt = parseFloat(amount) || 0;
         const userId = localStorage.getItem('user_id');
-        let accountId = null;
-        let accBalance = null;
-
-        if (userId) {
-          const { data: accData, error: accErr } = await supabase
-            .from('accounts')
-            .select('id, balance')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          if (accErr) console.error('Failed to fetch account', accErr);
-          if (accData) {
-            accountId = accData.id;
-            accBalance = accData.balance;
-          }
+        
+        if (!userId) {
+          setError('No user found. Please log in again.');
+          return;
         }
 
-        if (!accountId) {
+        // Fetch account data
+        const { data: accData, error: accErr } = await supabase
+          .from('accounts')
+          .select('id, balance')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (accErr || !accData) {
+          console.error('Failed to fetch account', accErr);
           setError('No account found for current user.');
           return;
         }
+
+        const accountId = accData.id;
+        const accBalance = accData.balance;
 
         if (accBalance < requestedAmt) {
           setError('Insufficient balance.');
           return;
         }
+
+        // Verify PIN against database
+        const { data: userData, error: userErr } = await supabase
+          .from('users')
+          .select('pin')
+          .eq('id', userId)
+          .single();
+        
+        if (userErr) {
+          console.error('Failed to fetch user PIN', userErr);
+          setPinError('Unable to verify PIN.');
+          return;
+        }
+        
+        const storedPin = userData?.pin ?? null;
+        if (!storedPin) {
+          setPinError('No PIN is set on your account. Please set a PIN in your profile.');
+          return;
+        }
+        
+        if (String(storedPin) !== String(pin)) {
+          setPinError('Incorrect PIN.');
+          return;
+        }
+
+        // PIN is correct, generate withdrawal code
+        const withdrawalCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
         const fullPayload = [{
           account_id: accountId,
@@ -137,13 +280,50 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
           description: `Cardless Withdrawal (requested ₱${requestedAmt.toLocaleString()}) at ${selectedLocation?.name || atmName}`,
         }];
 
-        const { data: inserted, error: insertErr } = await supabase.from('transactions').insert(fullPayload).select().single();
-
-        if (insertErr) {
-          throw insertErr;
+        // Try inserting full payload; if DB rejects unknown columns (e.g. no 'code'), retry reduced payload
+        let inserted = null;
+        try {
+          const res = await supabase.from('transactions').insert(fullPayload).select().single();
+          if (res.error) throw res.error;
+          inserted = res.data;
+        } catch (firstErr) {
+          console.warn('Insert pending withdrawal error (full payload):', firstErr);
+          const reducedPayload = [{
+            account_id: accountId,
+            amount: -(requestedAmt),
+            type_id: 4,
+            type: 'Cardless Withdrawal',
+            date: new Date().toISOString(),
+            transaction_status: 'Pending',
+            bank: selectedLocation?.name || atmName,
+            description: `Cardless Withdrawal (requested ₱${requestedAmt.toLocaleString()}) at ${selectedLocation?.name || atmName}`,
+          }];
+          try {
+            const res2 = await supabase.from('transactions').insert(reducedPayload).select().single();
+            if (res2.error) throw res2.error;
+            inserted = res2.data;
+          } catch (secondErr) {
+            console.error('Insert pending withdrawal error (reduced payload):', secondErr);
+            throw secondErr;
+          }
         }
 
         setGeneratedCode(withdrawalCode);
+        setWithdrawalAmount(requestedAmt);
+        setTimeRemaining(10 * 60); // 10 minutes in seconds
+        setTransactionId(inserted.id);
+        
+        // Store in localStorage for persistence
+        const withdrawalData = {
+          code: withdrawalCode,
+          amount: requestedAmt,
+          expiresAt: expiresAt,
+          locationName: selectedLocation?.name || atmName,
+          transactionId: inserted.id,
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('cf_active_withdrawal', JSON.stringify(withdrawalData));
+        
         onGenerate?.(selectedLocation, inserted);
         window.dispatchEvent(new CustomEvent('transactions:refresh'));
 
@@ -293,6 +473,46 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     */
   };
 
+  const handleCancelWithdrawal = async () => {
+    // Mark transaction as Unsuccessful
+    if (transactionId) {
+      try {
+        await supabase
+          .from('transactions')
+          .update({ transaction_status: 'Unsuccessful' })
+          .eq('id', transactionId);
+        window.dispatchEvent(new CustomEvent('transactions:refresh'));
+      } catch (err) {
+        console.error('Failed to update transaction status to Unsuccessful:', err);
+      }
+    }
+    // Clear localStorage and close
+    localStorage.removeItem('cf_active_withdrawal');
+    setGeneratedCode(null);
+    setTimeRemaining(null);
+    setTransactionId(null);
+    setWithdrawalAmount(null);
+    handleClose();
+  };
+
+  const handleClose = () => {
+    // Don't clear generated code state if it exists - it should persist
+    // Only clear input fields
+    try {
+      if (!generatedCode) {
+        // Only clear form fields if no code is generated
+        setAmount('');
+        setPin('');
+        setError('');
+        setAmountError('');
+        setPinError('');
+      }
+      // Note: We don't clear generatedCode, timeRemaining, or withdrawalAmount
+      // They should persist in localStorage until expired
+    } catch (e) {}
+    if (typeof onClose === 'function') onClose();
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -369,6 +589,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                         v = parts[0] + (parts[1] !== '' ? '.' + parts[1] : '');
                       }
                       setAmount(v);
+                      if (amountError) setAmountError('');
                     }}
                     onKeyDown={(e) => {
                       const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Enter'];
@@ -391,6 +612,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                       boxSizing: 'border-box'
                     }}
                   />
+                  {amountError && <div style={{ color: '#e53935', marginTop: '0.35vw', fontSize: '0.9rem', fontWeight: 600 }}>{amountError}</div>}
                 </label>
 
                 {senderBalance !== null && amount && (() => {
@@ -409,7 +631,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                     type="password"
                     maxLength="4"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); if (pinError) setPinError(''); }}
                     style={{
                       width: '100%',
                       padding: '0.5rem',
@@ -420,6 +642,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                       boxSizing: 'border-box'
                     }}
                   />
+                  {pinError && <div style={{ color: '#e53935', marginTop: '0.35vw', fontSize: '0.9rem', fontWeight: 600 }}>{pinError}</div>}
                 </label>
               </div>
 
@@ -431,7 +654,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   style={{
                     padding: '0.5rem 0.85rem',
                     border: '1px solid #ccc',
@@ -505,22 +728,57 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
             }}>
               {generatedCode}
             </div>
+            {withdrawalAmount && (
+              <div style={{
+                fontSize: '1.1rem',
+                marginBottom: '0.5rem',
+                color: '#666'
+              }}>
+                Amount: ₱{withdrawalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            )}
+            {timeRemaining !== null && (
+              <div style={{
+                fontSize: '1.2rem',
+                fontWeight: 600,
+                color: timeRemaining <= 60 ? '#e53935' : '#4CAF50',
+                marginBottom: '1rem'
+              }}>
+                {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')} remaining
+              </div>
+            )}
             <p style={{ marginBottom: '1rem' }}>
               Your withdrawal code is valid for 10 minutes.<br />
               Proceed to the selected ATM/branch and follow the instructions.
             </p>
-            <button
-              onClick={onClose}
-              style={{
-                padding: '0.5rem 1rem',
-                border: 'none',
-                borderRadius: '4px',
-                background: '#0a3cff',
-                color: 'white'
-              }}
-            >
-              Close
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                onClick={handleCancelWithdrawal}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  background: 'white',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel Withdrawal
+              </button>
+              <button
+                onClick={handleClose}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  background: '#0a3cff',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>
