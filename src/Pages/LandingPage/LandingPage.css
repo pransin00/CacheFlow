@@ -1,4 +1,4 @@
-.landing-root {
+}
   width: 100%;
   background: #dde6f7;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
@@ -208,6 +208,125 @@
 .dots { position: absolute; bottom: 34px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
 .dot { width: 10px; height: 10px; border-radius: 10px; background: #e5e7eb; cursor: pointer; }
 .dot.active { background: #0a3cff; }
+
+/* Responsive - Compact Mobile Viewable */
+
+/* Tablet (max-width: 968px) */
+@media (max-width: 968px) {
+  .landing-nav { padding: 2% 3% 0 3%; }
+  .landing-logo { height: 80px; }
+  .nav-link { font-size: 16px; }
+  .landing-nav-right { gap: 20px; }
+  .hero-inner { padding: 0 4%; }
+  .hero-title { font-size: 240%; }
+  .hero-sub { font-size: 105%; }
+  .btn-primary, .btn-outline { padding: 11px 15px; font-size: 15px; }
+  .hero-image { width: 65%; max-width: 450px; }
+  .about-section { padding: 5% 4%; }
+  .about-card { padding: 26px; gap: 26px; }
+  .about-main h2 { font-size: 28px; }
+  .about-aside { width: 100%; }
+  .contact-heading h2 { font-size: 28px; }
+}
+
+/* Mobile (max-width: 640px) */
+@media (max-width: 640px) {
+  .landing-hero { min-height: auto; padding-bottom: 30px; }
+  .landing-nav { flex-direction: column; gap: 14px; padding: 18px 15px 0 15px; }
+  .landing-logo { height: 65px; margin-right: 0; }
+  .landing-nav-right { gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .nav-link { font-size: 14px; }
+  .btn-outline { padding: 8px 12px; font-size: 14px; }
+  .hero-inner { flex-direction: column; padding: 25px 15px; gap: 25px; }
+  .hero-left { max-width: 100%; text-align: center; }
+  .brand { font-size: 17px; margin-bottom: 6px; }
+  .hero-title { font-size: 190%; line-height: 1.15; margin-bottom: 12px; }
+  .hero-sub { font-size: 95%; margin-bottom: 18px; line-height: 1.4; }
+  .hero-buttons { justify-content: center; gap: 10px; }
+  .btn-primary, .btn-outline { padding: 11px 14px; font-size: 14px; }
+  .hero-image { width: 80%; max-width: 350px; }
+  .divider-svg { height: 110px; }
+  .services-section > div { padding: 32px 15px !important; }
+  .services-section h1 { font-size: 28px !important; margin-bottom: 26px !important; }
+  .services-section > div > div { grid-template-columns: 1fr !important; gap: 20px !important; }
+  .services-section > div > div > div { width: 100% !important; max-width: 100% !important; padding: 22px !important; min-height: auto !important; }
+  .services-section > div > div > div img { width: 40px !important; height: 40px !important; }
+  .services-section > div > div > div > div > div:first-child { font-size: 20px !important; margin-bottom: 6px !important; }
+  .services-section > div > div > div > div > div:last-child { font-size: 14px !important; line-height: 1.5 !important; }
+  .about-section { padding: 38px 15px; min-height: auto; }
+  .about-card { padding: 20px; border-radius: 12px; }
+  .about-main { min-width: 100%; }
+  .about-main h2 { font-size: 24px; margin-bottom: 14px; }
+  .about-text p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+  .about-aside { padding: 16px; }
+  .about-aside h3 { font-size: 16px; margin-bottom: 8px; }
+  .about-aside ul { font-size: 14px; line-height: 1.6; }
+  .project-meta { padding: 12px; margin-top: 16px; }
+  .project-meta .meta-title { font-size: 13px; }
+  .project-meta .meta-val { font-size: 13px; margin-top: 4px; }
+  .contact-section { min-height: 85vh; height: auto; padding: 45px 15px; }
+  .contact-heading { position: static; margin-bottom: 32px; }
+  .contact-heading h2 { font-size: 26px; margin-bottom: 6px; }
+  .contact-heading p { font-size: 14px; padding: 0 10px; line-height: 1.5; }
+  .slideshow-root { padding: 18px 0; }
+  .slide-btn { width: 36px; height: 36px; font-size: 16px; }
+  .slide-btn.prev { left: 6px; }
+  .slide-btn.next { right: 6px; }
+  .viewport { width: 300px !important; }
+  .slide-card { width: 300px !important; }
+  .slide-top { height: 225px !important; }
+  .avatar { width: 110px; height: 110px; margin-bottom: -55px; font-size: 24px; }
+  .slide-body { padding: 75px 15px 18px; }
+  .slide-name { font-size: 16px; }
+  .slide-role { font-size: 13px; margin-top: 6px; }
+  .dots { bottom: 22px; gap: 6px; }
+  .dot { width: 8px; height: 8px; }
+}
+
+/* Small Mobile (max-width: 400px) */
+@media (max-width: 400px) {
+  .landing-nav { padding: 15px 12px 0 12px; gap: 12px; }
+  .landing-logo { height: 58px; }
+  .landing-nav-right { gap: 12px; }
+  .nav-link { font-size: 13px; }
+  .btn-outline { padding: 7px 10px; font-size: 13px; }
+  .hero-inner { padding: 20px 12px; gap: 20px; }
+  .brand { font-size: 16px; }
+  .hero-title { font-size: 170%; margin-bottom: 10px; }
+  .hero-sub { font-size: 88%; margin-bottom: 16px; }
+  .btn-primary, .btn-outline { padding: 10px 12px; font-size: 13px; }
+  .hero-image { width: 85%; }
+  .divider-svg { height: 95px; }
+  .services-section > div { padding: 26px 12px !important; }
+  .services-section h1 { font-size: 25px !important; margin-bottom: 22px !important; }
+  .services-section > div > div { gap: 18px !important; }
+  .services-section > div > div > div { padding: 20px !important; }
+  .services-section > div > div > div img { width: 36px !important; height: 36px !important; }
+  .services-section > div > div > div > div > div:first-child { font-size: 18px !important; }
+  .services-section > div > div > div > div > div:last-child { font-size: 13px !important; }
+  .about-section { padding: 32px 12px; }
+  .about-card { padding: 18px; border-radius: 10px; }
+  .about-main h2 { font-size: 22px; }
+  .about-text p { font-size: 13px; line-height: 1.55; margin-bottom: 10px; }
+  .about-aside { padding: 14px; }
+  .about-aside h3 { font-size: 15px; }
+  .about-aside ul { font-size: 13px; }
+  .project-meta { padding: 10px; }
+  .contact-section { padding: 38px 12px; min-height: 80vh; }
+  .contact-heading { margin-bottom: 28px; }
+  .contact-heading h2 { font-size: 23px; }
+  .contact-heading p { font-size: 13px; }
+  .viewport { width: 275px !important; }
+  .slide-card { width: 275px !important; }
+  .slide-top { height: 210px !important; }
+  .avatar { width: 100px; height: 100px; margin-bottom: -50px; font-size: 22px; }
+  .slide-body { padding: 68px 14px 16px; }
+  .slide-name { font-size: 15px; }
+  .slide-role { font-size: 12px; }
+  .dots { bottom: 20px; }
+}
+
+
 
 /* ========== RESPONSIVE STYLES ========== */
 

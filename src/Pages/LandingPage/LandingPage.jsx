@@ -76,8 +76,9 @@ const LandingPage = () => {
             <div className="hero-sub">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with CacheFlow</div>
 
             <div className="hero-buttons">
-              <button className="btn-primary">Get Started</button>
-              <button className="btn-outline">Learn More →</button>
+              {/* Remove Get Started and Learn More for phone view */}
+              <button className="btn-primary get-started-btn">Get Started</button>
+              <button className="btn-outline learn-more-btn">Learn More →</button>
             </div>
           </div>
 
@@ -101,29 +102,9 @@ const LandingPage = () => {
         <div style={{ width: "100%", background: "#f5f7fa", padding: "0", margin: 0 }}>
           <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 0 0 0" }}>
             <h1 style={{ textAlign: "center", fontWeight: 700, fontSize: 40, marginBottom: 40, color: "#111" }}>Services</h1>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 32,
-              justifyContent: "center"
-            }}>
+            <div className="services-cards-row">
               {services.map((s, i) => (
-                <div key={i} style={{
-                  background: "#b3e0ff",
-                  borderRadius: 24,
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-                  width: 480,
-                  minHeight: 180,
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 24,
-                  padding: 32,
-                  marginBottom: 0,
-                  gridColumn: i === services.length - 1 && services.length % 2 !== 0 ? "1 / -1" : "auto",
-                  maxWidth: i === services.length - 1 && services.length % 2 !== 0 ? "480px" : "none",
-                  marginLeft: i === services.length - 1 && services.length % 2 !== 0 ? "auto" : "0",
-                  marginRight: i === services.length - 1 && services.length % 2 !== 0 ? "auto" : "0"
-                }}>
+                <div key={i} className="service-card">
                   <img src={s.icon} alt="icon" style={{ width: 48, height: 48, marginTop: 4 }} />
                   <div>
                     <div style={{ color: s.color, fontWeight: 700, fontSize: 24, marginBottom: 8 }}>{s.title}</div>
@@ -139,39 +120,23 @@ const LandingPage = () => {
       <section id="about" className="about-section">
         <div className="about-wrapper">
           <div className="about-card">
-            <div className="about-main">
+            <div className="about-main compact-about">
               <h2>About the Project</h2>
               <div className="about-text">
                 <p>
-                  CacheFlow is a System Quality Assurance (SQA) semestral project that focuses on the development and testing of an online banking system. The project aims to evaluate the system’s functionality, reliability, usability, efficiency, and security based on software quality standards.
-                </p>
-
-                <p>
-                  CacheFlow simulates real-world online banking processes such as account login, balance inquiry, fund management, and transaction validation, providing a safe environment to test and analyze how an online banking system performs under different conditions.
-                </p>
-
-                <p>
-                  Through systematic testing and documentation, the project demonstrates the importance of quality assurance practices in software development—ensuring that the system meets user requirements and performs efficiently before deployment.
+                  CacheFlow is a System Quality Assurance (SQA) semestral project focused on building and testing an online banking system. The project evaluates functionality, reliability, usability, efficiency, and security.
                 </p>
               </div>
             </div>
 
-            <aside className="about-aside">
+            <aside className="about-aside compact-about-aside">
               <h3>🎯 Project Objectives</h3>
               <ul>
                 <li>Design & implement a prototype online banking system.</li>
-                <li>Perform functional, non-functional and usability testing.</li>
+                <li>Test for functionality, usability, and security.</li>
                 <li>Document defects and recommend improvements.</li>
                 <li>Ensure compliance with quality standards.</li>
               </ul>
-
-              <div className="project-meta">
-                <div className="meta-title">Project Type</div>
-                <div className="meta-val">SQA Semester Project</div>
-
-                <div className="meta-title">Focus Areas</div>
-                <div className="meta-val">Functionality • Reliability • Usability • Security</div>
-              </div>
             </aside>
           </div>
         </div>
@@ -201,9 +166,10 @@ const TeamSlideshow = () => {
     { name: 'Dane Joshia Dimafelix', role: 'QA', img: djImg, color: '#fbe7f0' }
   ];
 
-  const CARD_WIDTH = 360; // px
-  const GAP = 28; // px
-  const visibleCount = 3;
+  // Responsive: 2 per slide for phone view
+  const CARD_WIDTH = 180; // px for phone
+  const GAP = 12; // px for phone
+  const visibleCount = window.innerWidth <= 640 ? 2 : 3;
 
   // build clone buffer for seamless loop
   const slides = [...team.slice(-visibleCount), ...team, ...team.slice(0, visibleCount)];
