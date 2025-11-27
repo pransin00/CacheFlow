@@ -12,8 +12,6 @@ export default function AdminUsers() {
     const [firstName, setFirstName] = useState('');
     const [middleName, setMiddleName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
     // fixed Philippine mobile prefix and editable 9-digit suffix
     const CONTACT_PREFIX = '+639';
     const [contactRest, setContactRest] = useState('');
@@ -190,22 +188,9 @@ export default function AdminUsers() {
   async function openPreview() {
     setError('');
     setSuccessMsg('');
-    if (!firstName.trim() || !lastName.trim() || !username.trim() || !/^[0-9]{9}$/.test(contactRest)) {
-      setError('Please provide username, first name, last name and a 9-digit contact number (without the +639 prefix).');
+    if (!firstName.trim() || !lastName.trim() || !/^[0-9]{9}$/.test(contactRest)) {
+      setError('Please provide first name, last name and a 9-digit contact number (without the +639 prefix).');
       return;
-    }
-    try {
-      const uname = username.trim();
-      const { data: existingUsers, error: existsErr } = await supabase.from('users').select('id').eq('username', uname).limit(1);
-      if (existsErr) {
-        console.warn('Username existence check failed', existsErr);
-      }
-      if (existingUsers && existingUsers.length > 0) {
-        setError('Username already exists. Choose another username.');
-        return;
-      }
-    } catch (e) {
-      console.warn('Username check error', e);
     }
     const acct = generateAccountNumber(8);
     setPreviewAcctNumber(acct);
@@ -229,7 +214,7 @@ export default function AdminUsers() {
         setupToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         
         const userPayload = {
-          username: username.trim(),
+          username: null, // Will be set during account setup
           password: 'TEMP_' + setupToken.substring(0, 10), // Temporary password until user sets their own
           firstname: firstName.trim(),
           middlename: middleName.trim() || null,
@@ -337,8 +322,6 @@ export default function AdminUsers() {
       setMiddleName('');
       setLastName('');
       setContactRest('');
-      setUsername('');
-      setPassword('');
       
       // Show success message with setup link for admin to share
       const setupLink = `${window.location.origin}/setup-account?token=${setupToken}`;
@@ -443,10 +426,6 @@ export default function AdminUsers() {
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Last name</label>
                 <input className="au-input" value={lastName} onChange={e => setLastName(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Username</label>
-                <input className="au-input" value={username} onChange={e => setUsername(e.target.value)} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Contact (9 digits)</label>

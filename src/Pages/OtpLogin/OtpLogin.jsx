@@ -363,36 +363,35 @@ const OtpLogin = () => {
 
   return (
     <div className="otp-root">
-      <div className="otp-layout">
-        <div className="otp-left">
-          <img src={logo} alt="CacheFlow Logo" className="otp-logo" />
-          <div className="otp-desc">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with Reen Bank.</div>
-        </div>
-        <div className="otp-right">
-          {step === 'login' && (
-            <form onSubmit={handleLogin} className="otp-form">
-              <div className="otp-title">Login</div>
-              <div className="otp-sub">Enter your username and password to continue</div>
-              <div className="input-wrap">
-                <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="otp-input" />
-                <span className="input-icon">👤</span>
-              </div>
-              <div className="input-wrap">
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="otp-input" />
-                <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(p => !p)} className="password-toggle">
-                  <img src={showPassword ? hidePng : viewPng} alt={showPassword ? 'Hide' : 'Show'} className="password-toggle-img" />
-                </button>
-              </div>
-              <button type="submit" disabled={loading || (lockUntil && Date.now() < lockUntil)} className="otp-button">{loading ? 'Sending OTP...' : 'Login'}</button>
-              {error && <div className="otp-error">{error}</div>}
-              {info && <div className="otp-info">{info}</div>}
-            </form>
-          )}
+      <div className="otp-header">
+        <img src={logo} alt="CacheFlow Logo" className="otp-logo" />
+        <div className="otp-desc">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with Reen Bank.</div>
+      </div>
+      <div className="otp-container">
+        {step === 'login' && (
+          <form onSubmit={handleLogin} className="otp-form">
+            <div className="otp-title">Login</div>
+            <div className="otp-sub">Enter your username and password to continue</div>
+            <div className="input-wrap">
+              <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="otp-input" />
+              <span className="input-icon">👤</span>
+            </div>
+            <div className="input-wrap">
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="otp-input" />
+              <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(p => !p)} className="password-toggle">
+                <img src={showPassword ? hidePng : viewPng} alt={showPassword ? 'Hide' : 'Show'} className="password-toggle-img" />
+              </button>
+            </div>
+            <button type="submit" disabled={loading || (lockUntil && Date.now() < lockUntil)} className="otp-button">{loading ? 'Sending OTP...' : 'Login'}</button>
+            {error && <div className="otp-error">{error}</div>}
+            {info && <div className="otp-info">{info}</div>}
+          </form>
+        )}
 
-          {step === 'otp' && (
-            <form onSubmit={handleVerify} className="otp-form">
-              <div className="otp-title">Text Verification</div>
-              <div className="otp-sub">A 6-digit code has been sent to your message <span className="otp-change">Change</span></div>
+        {step === 'otp' && (
+          <form onSubmit={handleVerify} className="otp-form">
+            <div className="otp-title">Text Verification</div>
+            <div className="otp-sub">A 6-digit code has been sent to your message</div>
               <div className="otp-inputs">
                 {otp.map((digit, idx) => (
                   <input
@@ -418,12 +417,11 @@ const OtpLogin = () => {
                 ) : (
                   resendClicked ? <span className="otp-resend-requested">Resend requested</span> : <span className="otp-resend-disabled">Resend</span>
                 )
-              }</div>
-              {error && <div className="otp-error">{error}</div>}
-              {success && <div className="otp-success">Verified! Login successful.</div>}
-            </form>
-          )}
-        </div>
+            }</div>
+            {error && <div className="otp-error">{error}</div>}
+            {success && <div className="otp-success">Verified! Login successful.</div>}
+          </form>
+        )}
       </div>
     </div>
   );

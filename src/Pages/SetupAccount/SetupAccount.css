@@ -2,58 +2,41 @@
   width: 100vw;
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e6edfa;
-  background-image: url("data:image/svg+xml;utf8,<svg width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><g opacity='0.13'><rect x='0' y='0' width='100%' height='100%' fill='none'/><g font-size='48' font-family='Arial' fill='%230a3cff'><text x='20' y='60'>💳</text><text x='120' y='160'>🏦</text><text x='220' y='100'>💰</text><text x='320' y='200'>📈</text><text x='420' y='80'>📄</text><text x='520' y='180'>💸</text><text x='620' y='120'>🧾</text><text x='720' y='220'>💵</text></g></g></svg>");
-  background-repeat: repeat;
-  padding: 10px;
-}
-
-.setup-container {
-  width: 100%;
-  max-width: 1200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  flex-wrap: wrap;
-  margin: 0 auto;
-}
-
-.setup-left {
-  flex: 1;
-  min-width: 280px;
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  background: #e6edfa;
+  padding: 20px 10px;
+}
+
+.setup-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
 .setup-logo {
   width: 100%;
-  max-width: 280px;
-  margin-bottom: 32px;
+  max-width: 220px;
+  margin-bottom: 16px;
 }
 
 .setup-description {
   color: #222;
-  font-size: 17px;
+  font-size: 16px;
   text-align: center;
-  max-width: 420px;
+  max-width: 500px;
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-.setup-right {
-  flex: 1;
-  min-width: 280px;
+.setup-container {
+  width: 100%;
+  max-width: 460px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
-  width: 100%;
 }
 
 .setup-card {
@@ -157,42 +140,33 @@
 
 /* Tablet */
 @media (max-width: 968px) {
-  .setup-container {
-    flex-direction: column;
-    gap: 30px;
-  }
-  
-  .setup-left {
-    order: 1;
-  }
-  
-  .setup-right {
-    order: 2;
-    width: 100%;
-  }
-  
   .setup-logo {
-    max-width: 220px;
+    max-width: 200px;
+  }
+  
+  .setup-description {
+    font-size: 15px;
   }
 }
 
 /* Mobile */
 @media (max-width: 640px) {
   .setup-root {
-    padding: 5px;
+    padding: 15px 5px;
   }
   
-  .setup-container {
-    gap: 15px;
+  .setup-header {
+    margin-bottom: 20px;
   }
   
-  .setup-left {
-    display: none;
+  .setup-logo {
+    max-width: 160px;
+    margin-bottom: 12px;
   }
   
-  .setup-right {
-    padding: 5px;
-    width: 100%;
+  .setup-description {
+    font-size: 14px;
+    line-height: 1.4;
   }
   
   .setup-card {
@@ -229,6 +203,14 @@
 
 /* Small mobile */
 @media (max-width: 400px) {
+  .setup-logo {
+    max-width: 140px;
+  }
+  
+  .setup-description {
+    font-size: 13px;
+  }
+  
   .setup-card {
     padding: 20px 16px;
     border-radius: 14px;
@@ -254,6 +236,89 @@
   color: #388e3c;
   margin-top: 10px;
   font-size: 15px;
+}
+
+/* Success Modal */
+.setup-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.setup-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 40px 30px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.setup-modal-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 50px;
+  color: white;
+  font-weight: bold;
+  animation: scaleIn 0.5s ease 0.2s both;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.setup-modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 12px;
+}
+
+.setup-modal-message {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.5;
 }
 
 /* Reuse Login.css for layout and form styles */
