@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../utils/supabaseClient";
-import { hashPassword } from "../../utils/hashUtils";
 import logo from "../../assets/CacheFlow_Logo.png";
 import "./Login.css";
 
@@ -33,15 +32,14 @@ const Login = () => {
       return;
     }
 
-    // Hash the password before querying
-    const hashedPassword = await hashPassword(password);
-
+    // Query database with plain text credentials and fetch role and pin
     const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("username", username)
-      .eq("password", hashedPassword)
+      .eq("password", password)
       .single();
+      
     if (error || !data) {
       // increment attempts
       const next = attempts + 1;
@@ -58,7 +56,37 @@ const Login = () => {
       }
       return;
     }
+
+    // Check if user has setup_token - means they haven't completed account setup
+    if (data.setup_token) {
+      setError('Account setup not completed. Please check your SMS for the setup link.');
+      return;
+    }
+
     localStorage.setItem('user_id', data.id);
+
+    // Check if user is admin
+    if (data.role === 'admin') {
+      // For admin, ask for superpassword (PIN)
+      const superpassword = prompt('Enter superpassword (PIN):');
+      if (superpassword && superpassword === String(data.pin)) {
+        // Admin authenticated successfully
+        localStorage.setItem('admin_authenticated', 'true');
+        localStorage.setItem('user_role', data.role);
+        // reset attempt counters on success
+        setAttempts(0);
+        localStorage.removeItem('cf_login_attempts');
+        setLockUntil(null);
+        localStorage.removeItem('cf_login_lock_until');
+        navigate('/admin');
+        return;
+      } else {
+        setError('Invalid superpassword');
+        return;
+      }
+    }
+
+    // For regular users, continue with OTP flow
     if (data.contact_number) {
       localStorage.setItem('user_phone', data.contact_number);
       navigate('/otp-login');

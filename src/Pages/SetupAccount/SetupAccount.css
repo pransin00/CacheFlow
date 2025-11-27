@@ -1,0 +1,7 @@
+.success {
+  color: #388e3c;
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+/* Reuse Login.css for layout and form styles */

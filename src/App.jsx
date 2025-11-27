@@ -7,6 +7,7 @@ import Profile from './Pages/Profile/Profile';
 import Maps from './Pages/Maps/Maps';
 import Transactions from './Pages/Transactions/Transactions';
 import Admin from './Pages/Admin/Admin';
+import SetupAccount from './Pages/SetupAccount/SetupAccount';
 
 function App() {
   return (
@@ -14,8 +15,9 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<OtpLogin />} />
-  <Route path="/dashboard" element={<Dashboard />} />
-  <Route path="/transactions" element={<Transactions />} />
+        <Route path="/setup-account" element={<SetupAccount />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/transactions" element={<Transactions />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/maps" element={<Maps />} />
         <Route path="/admin" element={<Admin />} />

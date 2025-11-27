@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
-import { hashPassword, SUPERPASS_HASH } from '../../../utils/hashUtils';
+import { hashPassword } from '../../../utils/hashUtils';
 import './AdminTransactionLogs.css';
 
 export default function AdminTransactionLogs() {
@@ -8,15 +8,12 @@ export default function AdminTransactionLogs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filterDate, setFilterDate] = useState('');
-  // superpassword for viewing details - now uses hashed password
-  const SUPERPASS_KEY = 'admin_superpassword_hash';
+  // superpassword for viewing details - uses admin PIN from localStorage
   const [superPassHash, setSuperPassHash] = useState(() => {
-    const stored = localStorage.getItem(SUPERPASS_KEY);
-    if (!stored) {
-      localStorage.setItem(SUPERPASS_KEY, SUPERPASS_HASH);
-      return SUPERPASS_HASH;
-    }
-    return stored;
+    // Get the admin PIN (stored during login)
+    const adminPin = localStorage.getItem('admin_pin');
+    // If no PIN in localStorage, return empty string (user needs to re-login)
+    return adminPin || '';
   });
   const [showPassPrompt, setShowPassPrompt] = useState(false);
   const [passInput, setPassInput] = useState('');

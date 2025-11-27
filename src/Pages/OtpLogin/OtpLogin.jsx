@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { hashPassword, ADMIN_PASSWORD_HASH } from '../../utils/hashUtils';
 import logo from '../../assets/CacheFlow_Logo.png';
 import viewPng from '../../assets/view.png';
 import hidePng from '../../assets/hide.png';
@@ -67,17 +66,6 @@ const OtpLogin = () => {
     
     setLoading(true);
 
-    // Short-circuit admin login: redirect directly to /admin without OTP
-    if (username === 'admin') {
-      const hashedPassword = await hashPassword(password);
-      if (hashedPassword === ADMIN_PASSWORD_HASH) {
-        localStorage.setItem('admin_authenticated', 'true');
-        setLoading(false);
-        navigate('/admin');
-        return;
-      }
-    }
-
     // respect lockout
     if (lockUntil && Date.now() < lockUntil) {
       setError(`Too many failed attempts. Try again in ${Math.ceil((lockUntil - Date.now()) / 1000)}s`);
@@ -97,16 +85,15 @@ const OtpLogin = () => {
       return;
     }
 
-    // Hash the password before querying
-    const hashedPassword = await hashPassword(password);
-
-    // Check username/password in Supabase
+    // Check username/password in Supabase - fetch role and pin as well
     const { data, error: loginError } = await supabase
       .from('users')
-      .select('id, contact_number')
+      .select('id, username, password, contact_number, role, pin, setup_token')
       .eq('username', username)
-      .eq('password', hashedPassword)
+      .eq('password', password)
       .single();
+
+    console.log('Login attempt:', { username, hasData: !!data, error: loginError, role: data?.role });
 
     
 
@@ -128,6 +115,38 @@ const OtpLogin = () => {
       return;
     }
 
+    // Check if user has setup_token - means they haven't completed account setup
+    if (data.setup_token) {
+      setError('Account setup not completed. Please check your SMS for the setup link.');
+      setLoading(false);
+      return;
+    }
+
+    // Check if user is admin
+    if (data.role === 'admin') {
+      // For admin, ask for superpassword (PIN)
+      const superpassword = prompt('Enter superpassword (PIN):');
+      if (superpassword && superpassword === String(data.pin)) {
+        // Admin authenticated successfully
+        localStorage.setItem('admin_authenticated', 'true');
+        localStorage.setItem('user_id', data.id);
+        localStorage.setItem('user_role', data.role);
+        // reset attempts on successful authentication
+        setAttempts(0);
+        localStorage.removeItem('cf_login_attempts');
+        setLockUntil(null);
+        localStorage.removeItem('cf_login_lock_until');
+        setLoading(false);
+        navigate('/admin');
+        return;
+      } else {
+        setError('Invalid superpassword');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // For regular users, continue with OTP flow
     if (!data.contact_number || data.contact_number.trim() === '') {
       setError('No contact number is associated with this account.');
       

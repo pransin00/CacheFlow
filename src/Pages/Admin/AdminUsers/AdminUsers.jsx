@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
-import { hashPassword, SUPERPASS_HASH } from '../../../utils/hashUtils';
 import './AdminUsers.css';
 
 export default function AdminUsers() {
@@ -41,16 +40,12 @@ export default function AdminUsers() {
     const [deletePassInput, setDeletePassInput] = useState('');
     const [deletePassError, setDeletePassError] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
-    // superpassword handling - now uses hashed password stored in localStorage
-    const SUPERPASS_KEY = 'admin_superpassword_hash';
+    // superpassword handling - uses admin PIN from localStorage
     const [superPassHash, setSuperPassHash] = useState(() => {
-      // Check if there's a stored hash, otherwise use the default hash
-      const stored = localStorage.getItem(SUPERPASS_KEY);
-      if (!stored) {
-        localStorage.setItem(SUPERPASS_KEY, SUPERPASS_HASH);
-        return SUPERPASS_HASH;
-      }
-      return stored;
+      // Get the admin PIN (stored during login)
+      const adminPin = localStorage.getItem('admin_pin');
+      // If no PIN in localStorage, return empty string (user needs to re-login)
+      return adminPin || '';
     });
     const [showPassPrompt, setShowPassPrompt] = useState(false);
     const [passInput, setPassInput] = useState('');
@@ -224,23 +219,32 @@ export default function AdminUsers() {
     setShowConfirm(false);
     try {
       let finalInserted = null;
+      let userId = null;
+      let setupToken = null; // Declare setupToken outside the loop
+      
       for (let attempt = 0; attempt < 8; attempt++) {
         const acct = attempt === 0 && initialAcct ? initialAcct : generateAccountNumber(8);
-        const hashedPassword = await hashPassword(password.trim() || username.trim());
+        
+        // Generate a unique setup token
+        setupToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
         const userPayload = {
           username: username.trim(),
-          password: hashedPassword,
+          password: 'TEMP_' + setupToken.substring(0, 10), // Temporary password until user sets their own
           firstname: firstName.trim(),
           middlename: middleName.trim() || null,
           lastname: lastName.trim(),
           contact_number: CONTACT_PREFIX + contactRest,
+          pin: '0000', // Temporary PIN until user sets their own
+          setup_token: setupToken,
+          role: 'user'
         };
         const { data: userData, error: userError } = await supabase.from('users').insert([userPayload]).select('id');
         if (userError) {
           console.error('Failed to insert user', userError);
           throw userError;
         }
-        const userId = userData && userData[0] && userData[0].id;
+        userId = userData && userData[0] && userData[0].id;
         if (!userId) {
           throw new Error('Failed to obtain user id after insert');
         }
@@ -259,6 +263,52 @@ export default function AdminUsers() {
           }
           throw acctError;
         }
+        
+        // Send SMS with OTP for account verification
+        try {
+          const setupLink = `${window.location.origin}/setup-account?token=${setupToken}`;
+          console.log('Attempting to send SMS to:', CONTACT_PREFIX + contactRest);
+          console.log('Setup link:', setupLink);
+          
+          // Send first message: OTP
+          const response = await fetch('http://localhost:3001/api/send-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              phoneNumbers: [CONTACT_PREFIX + contactRest]
+            })
+          });
+
+          const responseData = await response.json();
+          console.log('OTP SMS Response:', responseData);
+
+          if (response.ok && responseData.otp) {
+            console.log('OTP sent successfully:', responseData.otp);
+            
+            // Wait 3 seconds before sending second message
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Send second message: Setup link (shortened without http://)
+            const shortLink = setupLink.replace('http://', '').replace('https://', '');
+            const linkResponse = await fetch('http://localhost:3001/api/send-setup-sms', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                phoneNumbers: [CONTACT_PREFIX + contactRest],
+                message: `Setup: ${shortLink}`
+              })
+            });
+            
+            const linkData = await linkResponse.json();
+            console.log('Setup link SMS Response:', linkData);
+          } else {
+            console.warn('Failed to send OTP SMS:', responseData);
+          }
+        } catch (smsErr) {
+          console.error('SMS sending error:', smsErr);
+          // Don't fail the whole operation if SMS fails
+        }
+        
         finalInserted = acctData;
         setPreviewAcctNumber(acct);
         break;
@@ -288,10 +338,20 @@ export default function AdminUsers() {
       setContactRest('');
       setUsername('');
       setPassword('');
-      // Then show success toast
-      setSuccessMsg('User and account created successfully.');
+      
+      // Show success message with setup link for admin to share
+      const setupLink = `${window.location.origin}/setup-account?token=${setupToken}`;
+      setSuccessMsg(`User created! Setup link: ${setupLink}`);
       setShowToast(true);
-      setTimeout(() => { setShowToast(false); setSuccessMsg(''); }, 4000);
+      
+      // Copy link to clipboard
+      navigator.clipboard.writeText(setupLink).then(() => {
+        console.log('Setup link copied to clipboard');
+      }).catch(err => {
+        console.warn('Failed to copy to clipboard:', err);
+      });
+      
+      setTimeout(() => { setShowToast(false); setSuccessMsg(''); }, 10000); // Show for 10 seconds
     } catch (err) {
       console.error('Failed to add account', err);
       setError('Failed to add account: ' + (err.message || err));
@@ -387,16 +447,13 @@ export default function AdminUsers() {
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Username</label>
                 <input className="au-input" value={username} onChange={e => setUsername(e.target.value)} />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Password</label>
-                <input className="au-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave empty to use username" />
-              </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Contact (9 digits)</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f1f5f9', display: 'inline-flex', alignItems: 'center' }}>{CONTACT_PREFIX}</div>
                   <input className="au-input" value={contactRest} onChange={e => setContactRest(e.target.value.replace(/\D/g, '').slice(0,9))} />
                 </div>
+                <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>User will receive an SMS with a setup link to create their password and PIN</div>
               </div>
             </div>
             {error && <div style={{ color: '#d32f2f', marginTop: 10 }}>{error}</div>}

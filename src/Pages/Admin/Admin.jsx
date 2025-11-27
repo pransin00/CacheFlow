@@ -3,63 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import AdminTransactionLogs from './AdminTransactionLogs/AdminTransactionLogs';
 import AdminUsers from './AdminUsers/AdminUsers';
 import AdminDashboard from './AdminDashboard/AdminDashboard';
-import { hashPassword, ADMIN_PASSWORD_HASH } from '../../utils/hashUtils';
 import './Admin.css';
-
-const ADMIN_USERNAME = 'admin';
 
 export default function Admin() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [selected, setSelected] = useState('dashboard');
   const navigate = useNavigate();
 
   useEffect(() => {
     const ok = localStorage.getItem('admin_authenticated');
-    if (ok === 'true') setAuthenticated(true);
-  }, []);
-
-  async function handleLogin(e) {
-    e && e.preventDefault();
-    setError('');
-    const hashedPassword = await hashPassword(password);
-    if (username === ADMIN_USERNAME && hashedPassword === ADMIN_PASSWORD_HASH) {
-      localStorage.setItem('admin_authenticated', 'true');
+    if (ok === 'true') {
       setAuthenticated(true);
     } else {
-      setError('Invalid admin credentials');
+      // Not authenticated, redirect to login
+      navigate('/login');
     }
-  }
+  }, [navigate]);
 
   function handleSignOut() {
     localStorage.removeItem('admin_authenticated');
+    localStorage.removeItem('admin_pin');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_role');
     setAuthenticated(false);
-    setUsername('');
-    setPassword('');
-    setSelected('transaction');
     navigate('/login');
   }
 
   if (!authenticated) {
-    return (
-      <div className="admin-login-root">
-        <form onSubmit={handleLogin} className="admin-login-form">
-          <h2 className="admin-login-title">Admin Login</h2>
-          <div className="admin-login-sub">Sign in with the single admin account.</div>
-          <label className="admin-label">Username</label>
-          <input value={username} onChange={e => setUsername(e.target.value)} className="admin-input" placeholder="admin" />
-          <label className="admin-label">Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="admin-input" placeholder="admin123" />
-          {error && <div className="admin-error">{error}</div>}
-          <div className="admin-login-actions">
-            <button type="submit" className="admin-btn admin-btn-primary">Sign in</button>
-            <button type="button" onClick={() => { setUsername(ADMIN_USERNAME); setPassword(ADMIN_PASSWORD); }} className="admin-btn admin-btn-outline">Fill</button>
-          </div>
-        </form>
-      </div>
-    );
+    // Redirect handled in useEffect
+    return null;
   }
 
   return (
