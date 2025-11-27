@@ -271,6 +271,12 @@ export default function AdminUsers() {
           if (response.ok && responseData.otp) {
             console.log('OTP sent successfully:', responseData.otp);
             
+            // Store OTP in database for verification during setup
+            await supabase
+              .from('users')
+              .update({ password: responseData.otp.toString() })
+              .eq('id', userId);
+            
             // Wait 3 seconds before sending second message
             await new Promise(resolve => setTimeout(resolve, 3000));
             

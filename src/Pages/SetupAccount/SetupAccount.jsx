@@ -26,19 +26,19 @@ const SetupAccount = () => {
   const navigate = useNavigate();
   const inputRefs = useRef([]);
 
-  // Fetch user contact number and send OTP on mount
+  // Fetch user contact number on mount (OTP already sent during account creation)
   useEffect(() => {
-    async function initOtp() {
+    async function initSetup() {
       if (!token) {
         setError("Invalid or missing setup token.");
         return;
       }
       
       try {
-        // Get user contact number
+        // Get user contact number and OTP
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("contact_number")
+          .select("contact_number, password")
           .eq("setup_token", token)
           .single();
         
@@ -48,35 +48,14 @@ const SetupAccount = () => {
         }
         
         setContactNumber(userData.contact_number);
-        
-        // Send OTP automatically
-        try {
-          const response = await fetch('http://localhost:3001/api/send-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              phoneNumbers: [userData.contact_number]
-            })
-          });
-
-          const responseData = await response.json();
-          
-          if (response.ok && responseData.otp) {
-            setSentOtp(responseData.otp.toString());
-            console.log('OTP sent:', responseData.otp);
-          } else {
-            setError('Failed to send OTP. Please refresh.');
-          }
-        } catch (smsErr) {
-          console.error('SMS error:', smsErr);
-          setError('Failed to send OTP. Please refresh.');
-        }
+        // The OTP was sent during account creation and stored in password field
+        setSentOtp(userData.password || '');
       } catch (err) {
         setError("Failed to initialize setup.");
       }
     }
     
-    initOtp();
+    initSetup();
   }, [token]);
 
   // Timer countdown
