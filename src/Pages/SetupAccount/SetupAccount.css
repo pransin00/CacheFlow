@@ -58,7 +58,7 @@
 
 .setup-subtitle {
   text-align: center;
-  color: #666;
+  color: #333;
   font-size: 14px;
   margin-bottom: 24px;
   margin-top: -16px;
@@ -94,14 +94,15 @@
   text-align: center;
   margin-bottom: 16px;
   font-size: 14px;
-  color: #666;
+  color: #333;
+  font-weight: 500;
 }
 
 .otp-resend {
   text-align: center;
   margin-top: 16px;
   font-size: 14px;
-  color: #666;
+  color: #333;
 }
 
 .otp-resend-link {
@@ -146,18 +147,40 @@
   background: #fafdff;
   outline: none;
   transition: border-color 0.2s;
+  color: #000;
+  font-weight: 500;
+}
+
+.setup-input::placeholder {
+  color: #999;
+  font-weight: 400;
 }
 
 .setup-input:focus {
   border-color: #0a3cff;
 }
 
-.setup-toggle-icon {
+.setup-icon {
   position: absolute;
   right: 14px;
-  color: #b3bfcf;
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.setup-icon-toggle {
+  position: absolute;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  opacity: 0.7;
   cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.setup-icon-toggle:hover {
+  opacity: 1;
 }
 
 .setup-error {

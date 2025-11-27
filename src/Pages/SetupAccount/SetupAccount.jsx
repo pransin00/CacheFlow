@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../utils/supabaseClient";
 import logo from "../../assets/CacheFlow_Logo.png";
+import userIcon from "../../assets/user.png";
+import viewIcon from "../../assets/view.png";
+import hideIcon from "../../assets/hide.png";
 import "./SetupAccount.css";
 
 const SetupAccount = () => {
@@ -308,7 +311,7 @@ const SetupAccount = () => {
                   onChange={e => setUsername(e.target.value)}
                   className="setup-input"
                 />
-                <span className="setup-toggle-icon" style={{pointerEvents: 'none'}}>👤</span>
+                <img src={userIcon} alt="User" className="setup-icon" />
               </div>
             </div>
             <div className="setup-field">
@@ -321,7 +324,13 @@ const SetupAccount = () => {
                   onChange={e => setPassword(e.target.value)}
                   className="setup-input"
                 />
-                <span className="setup-toggle-icon" onClick={() => setShowPassword(p => !p)} title={showPassword ? "Hide password" : "Show password"}>{showPassword ? '👁️' : '🙈'}</span>
+                <img 
+                  src={showPassword ? viewIcon : hideIcon} 
+                  alt={showPassword ? "Hide" : "Show"} 
+                  className="setup-icon-toggle" 
+                  onClick={() => setShowPassword(p => !p)} 
+                  title={showPassword ? "Hide password" : "Show password"}
+                />
               </div>
             </div>
             <div className="setup-field">
@@ -334,7 +343,13 @@ const SetupAccount = () => {
                   onChange={e => setConfirmPassword(e.target.value)}
                   className="setup-input"
                 />
-                <span className="setup-toggle-icon" onClick={() => setShowConfirmPassword(p => !p)} title={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? '👁️' : '🙈'}</span>
+                <img 
+                  src={showConfirmPassword ? viewIcon : hideIcon} 
+                  alt={showConfirmPassword ? "Hide" : "Show"} 
+                  className="setup-icon-toggle" 
+                  onClick={() => setShowConfirmPassword(p => !p)} 
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                />
               </div>
             </div>
             <div className="setup-field">
@@ -347,7 +362,13 @@ const SetupAccount = () => {
                   onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0,4))}
                   className="setup-input"
                 />
-                <span className="setup-toggle-icon" onClick={() => setShowPin(p => !p)} title={showPin ? "Hide PIN" : "Show PIN"}>{showPin ? '👁️' : '🙈'}</span>
+                <img 
+                  src={showPin ? viewIcon : hideIcon} 
+                  alt={showPin ? "Hide" : "Show"} 
+                  className="setup-icon-toggle" 
+                  onClick={() => setShowPin(p => !p)} 
+                  title={showPin ? "Hide PIN" : "Show PIN"}
+                />
               </div>
             </div>
             {error && <div className="setup-error">{error}</div>}
