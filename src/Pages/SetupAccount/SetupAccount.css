@@ -83,6 +83,7 @@
   outline: none;
   font-weight: 700;
   transition: border-color 0.2s;
+  color: #000;
 }
 
 .otp-digit:focus {

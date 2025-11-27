@@ -88,6 +88,10 @@ const SetupAccount = () => {
     const entered = otp.join('').trim();
     const expected = (sentOtp || '').toString().trim();
     
+    console.log('Entered OTP:', entered);
+    console.log('Expected OTP:', expected);
+    console.log('Match:', entered === expected);
+    
     if (entered === '') {
       setError('Please enter the OTP code.');
       return;
@@ -120,6 +124,12 @@ const SetupAccount = () => {
         setTimer(45);
         setOtp(['', '', '', '', '', '']);
         console.log('OTP resent:', responseData.otp);
+        
+        // Update OTP in database
+        await supabase
+          .from('users')
+          .update({ password: responseData.otp.toString() })
+          .eq('setup_token', token);
       } else {
         setError('Failed to resend OTP.');
       }
