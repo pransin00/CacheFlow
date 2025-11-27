@@ -234,7 +234,7 @@ export default function AdminUsers() {
           throw new Error('Failed to obtain user id after insert');
         }
         const acctPayload = { user_id: userId, account_number: acct };
-        const { data: acctData, error: acctError } = await supabase.from('accounts').insert([acctPayload]);
+        const { data: acctData, error: acctError } = await supabase.from('accounts').insert([acctPayload]).select();
         if (acctError) {
           const msg = (acctError && acctError.message) || '';
           console.warn('Account insert failed', acctError);
