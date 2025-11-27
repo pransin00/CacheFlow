@@ -266,7 +266,8 @@ export default function AdminUsers() {
         
         // Send SMS with OTP for account verification
         try {
-          const setupLink = `${window.location.origin}/setup-account?token=${setupToken}`;
+          // Use production URL
+          const setupLink = `https://cache-flow-t8da.vercel.app/setup-account?token=${setupToken}`;
           console.log('Attempting to send SMS to:', CONTACT_PREFIX + contactRest);
           console.log('Setup link:', setupLink);
           
