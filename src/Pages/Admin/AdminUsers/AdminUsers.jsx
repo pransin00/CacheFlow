@@ -299,21 +299,6 @@ export default function AdminUsers() {
         setPreviewAcctNumber(acct);
         break;
       }
-      if (!finalInserted) {
-        try {
-          const uname = username.trim();
-          const foundUser = await supabase.from('users').select('id').eq('username', uname).limit(1).maybeSingle();
-          if (foundUser && foundUser.data && foundUser.data.id) {
-            const { data: foundAcct } = await supabase.from('accounts').select('account_number').eq('user_id', foundUser.data.id).limit(1);
-            if (foundAcct && foundAcct.length > 0) {
-              setPreviewAcctNumber(foundAcct[0].account_number);
-              finalInserted = foundAcct;
-            }
-          }
-        } catch (detectErr) {
-          console.warn('Detection query failed', detectErr);
-        }
-      }
       if (!finalInserted) throw new Error('Failed to generate a unique account number after several attempts.');
       await loadUsers();
       // Close modal and clear form first
