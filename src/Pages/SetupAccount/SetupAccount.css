@@ -1,3 +1,255 @@
+.setup-root {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e6edfa;
+  background-image: url("data:image/svg+xml;utf8,<svg width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><g opacity='0.13'><rect x='0' y='0' width='100%' height='100%' fill='none'/><g font-size='48' font-family='Arial' fill='%230a3cff'><text x='20' y='60'>💳</text><text x='120' y='160'>🏦</text><text x='220' y='100'>💰</text><text x='320' y='200'>📈</text><text x='420' y='80'>📄</text><text x='520' y='180'>💸</text><text x='620' y='120'>🧾</text><text x='720' y='220'>💵</text></g></g></svg>");
+  background-repeat: repeat;
+  padding: 10px;
+}
+
+.setup-container {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 0 auto;
+}
+
+.setup-left {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+}
+
+.setup-logo {
+  width: 100%;
+  max-width: 280px;
+  margin-bottom: 32px;
+}
+
+.setup-description {
+  color: #222;
+  font-size: 17px;
+  text-align: center;
+  max-width: 420px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.setup-right {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  width: 100%;
+}
+
+.setup-card {
+  background: linear-gradient(135deg, #fafdff 60%, #e6edfa 100%);
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(10, 60, 255, 0.15);
+  padding: 48px 42px;
+  width: 100%;
+  max-width: 460px;
+}
+
+.setup-title {
+  text-align: center;
+  margin-bottom: 32px;
+  color: #0a3cff;
+  font-weight: 700;
+  font-size: 32px;
+}
+
+.setup-field {
+  margin-bottom: 24px;
+}
+
+.setup-field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #222;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.setup-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.setup-input {
+  width: 100%;
+  padding: 14px 44px 14px 16px;
+  border-radius: 10px;
+  border: 1.5px solid #dbeafe;
+  font-size: 16px;
+  background: #fafdff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.setup-input:focus {
+  border-color: #0a3cff;
+}
+
+.setup-toggle-icon {
+  position: absolute;
+  right: 14px;
+  color: #b3bfcf;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.setup-error {
+  color: #e53935;
+  margin-bottom: 14px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.setup-success {
+  color: #4caf50;
+  margin-bottom: 14px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.setup-button {
+  width: 100%;
+  background: linear-gradient(90deg, #0a3cff 60%, #1976d2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 15px;
+  font-weight: 700;
+  font-size: 18px;
+  cursor: pointer;
+  margin-top: 12px;
+  box-shadow: 0 4px 12px rgba(10, 60, 255, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.setup-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(10, 60, 255, 0.3);
+}
+
+.setup-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Tablet */
+@media (max-width: 968px) {
+  .setup-container {
+    flex-direction: column;
+    gap: 30px;
+  }
+  
+  .setup-left {
+    order: 1;
+  }
+  
+  .setup-right {
+    order: 2;
+    width: 100%;
+  }
+  
+  .setup-logo {
+    max-width: 220px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .setup-root {
+    padding: 5px;
+  }
+  
+  .setup-container {
+    gap: 15px;
+  }
+  
+  .setup-left {
+    display: none;
+  }
+  
+  .setup-right {
+    padding: 5px;
+    width: 100%;
+  }
+  
+  .setup-card {
+    padding: 24px 20px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(10, 60, 255, 0.12);
+  }
+  
+  .setup-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+  
+  .setup-field {
+    margin-bottom: 16px;
+  }
+  
+  .setup-field label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  
+  .setup-input {
+    padding: 12px 40px 12px 12px;
+    font-size: 15px;
+  }
+  
+  .setup-button {
+    padding: 13px;
+    font-size: 16px;
+    margin-top: 8px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 400px) {
+  .setup-card {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+  
+  .setup-title {
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+  
+  .setup-input {
+    padding: 11px 38px 11px 11px;
+    font-size: 14px;
+  }
+  
+  .setup-button {
+    padding: 12px;
+    font-size: 15px;
+  }
+}
+
 .success {
   color: #388e3c;
   margin-top: 10px;
