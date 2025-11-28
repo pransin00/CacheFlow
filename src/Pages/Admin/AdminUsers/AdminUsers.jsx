@@ -7,6 +7,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
     // --- component state (moved up so hooks are declared before functions that use them) ---
     const [showAdd, setShowAdd] = useState(false);
     const [firstName, setFirstName] = useState('');
@@ -66,14 +67,34 @@ export default function AdminUsers() {
     setError('');
     try {
       // Fetch accounts with user_id and account_number
-      const { data, error } = await supabase
+      const { data: accountsData, error: accountsError } = await supabase
         .from('accounts')
         .select('user_id, account_number')
         .order('created_at', { ascending: false })
         .limit(500);
 
-      if (error) throw error;
-      setRows(data || []);
+      if (accountsError) throw accountsError;
+      
+      // Fetch user data to determine status
+      const userIds = (accountsData || []).map(a => a.user_id);
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, password, pin')
+        .in('id', userIds);
+      
+      if (usersError) throw usersError;
+      
+      // Merge account and user data
+      const merged = (accountsData || []).map(account => {
+        const user = (usersData || []).find(u => u.id === account.user_id);
+        const hasUsername = user && user.username && user.username.trim() !== '';
+        const hasPassword = user && user.password && !user.password.startsWith('TEMP_');
+        const hasPin = user && user.pin && user.pin !== '0000';
+        const status = (hasUsername && hasPassword && hasPin) ? 'Active' : 'Pending';
+        return { ...account, status };
+      });
+      
+      setRows(merged);
     } catch (err) {
       console.error('Failed to load users/accounts', err);
       setError('Failed to load users');
@@ -346,6 +367,14 @@ export default function AdminUsers() {
           onChange={e => setSearchTerm(e.target.value)}
           style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e6eefc', width: 360 }}
         />
+        <select 
+          value={sortOrder} 
+          onChange={e => setSortOrder(e.target.value)}
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e6eefc', background: '#fff', cursor: 'pointer' }}
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
         <div style={{ color: '#666', fontSize: 13 }}>{rows.length} total accounts</div>
         </div>
         <div>
@@ -369,21 +398,43 @@ export default function AdminUsers() {
               const filtered = term
                 ? unique.filter(u => (u.user_id || '').toString().toLowerCase().includes(term) || (u.account_number || '').toString().toLowerCase().includes(term))
                 : unique;
+              
+              // Apply sort order
+              const sorted = [...filtered].sort((a, b) => {
+                // Since we're using account created_at which is already sorted by the query,
+                // we need to preserve the original order or reverse it
+                const indexA = rows.findIndex(r => r.user_id === a.user_id);
+                const indexB = rows.findIndex(r => r.user_id === b.user_id);
+                return sortOrder === 'newest' ? indexA - indexB : indexB - indexA;
+              });
 
               return (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid #eef2ff' }}>
-                  <th style={{ padding: '6px 8px', width: '40%' }}>User ID</th>
-                  <th style={{ padding: '6px 8px', width: '40%' }}>Account Number</th>
+                  <th style={{ padding: '6px 8px', width: '30%' }}>User ID</th>
+                  <th style={{ padding: '6px 8px', width: '30%' }}>Account Number</th>
+                  <th style={{ padding: '6px 8px', width: '20%' }}>Status</th>
                   <th style={{ padding: '6px 8px', width: '20%' }} aria-label="actions"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r, i) => (
+                {sorted.map((r, i) => (
                   <tr key={`${r.user_id}-${i}`} style={{ borderBottom: '1px dashed #f6f8ff' }}>
                     <td style={{ padding: '8px 8px', fontFamily: 'monospace', fontSize: 13 }}>{r.user_id}</td>
                     <td style={{ padding: '8px 8px', fontFamily: 'monospace', fontSize: 13 }}>{maskAccount(r.account_number)}</td>
+                    <td style={{ padding: '8px 8px' }}>
+                      <span style={{ 
+                        padding: '4px 10px', 
+                        borderRadius: 12, 
+                        fontSize: 12, 
+                        fontWeight: 600,
+                        background: r.status === 'Active' ? '#e8f5e9' : '#fff3e0',
+                        color: r.status === 'Active' ? '#2e7d32' : '#e65100'
+                      }}>
+                        {r.status}
+                      </span>
+                    </td>
                     <td style={{ padding: '8px 8px' }}>
                       <button onClick={() => { setPendingEdit({ userId: r.user_id, accountNumber: r.account_number }); setPassError(''); setPassInput(''); setShowPassPrompt(true); }} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e6eefc', background: '#fff' }}>Edit</button>
                     </td>
@@ -530,11 +581,28 @@ export default function AdminUsers() {
               <button 
                 type="button" 
                 onClick={async () => {
-                  const hashedInput = await hashPassword(deletePassInput);
-                  if (hashedInput === superPassHash) {
+                  // Fetch admin's PIN from database
+                  const user_id = localStorage.getItem('user_id');
+                  if (!user_id) {
+                    setDeletePassError('Session expired. Please login again.');
+                    return;
+                  }
+                  
+                  const { data: adminData, error: adminError } = await supabase
+                    .from('users')
+                    .select('pin')
+                    .eq('id', user_id)
+                    .single();
+                  
+                  if (adminError || !adminData) {
+                    setDeletePassError('Failed to verify. Please try again.');
+                    return;
+                  }
+                  
+                  if (deletePassInput === adminData.pin) {
                     performDelete();
                   } else {
-                    setDeletePassError('Incorrect superadmin password');
+                    setDeletePassError('Incorrect superpassword');
                   }
                 }}
                 disabled={deleteLoading}
@@ -600,14 +668,31 @@ export default function AdminUsers() {
             <div className="modal-actions">
               <button type="button" onClick={() => { setShowPassPrompt(false); setShowPassword(false); }} className="modal-btn modal-cancel">Cancel</button>
               <button type="button" onClick={async () => {
-                const hashedInput = await hashPassword(passInput);
-                if (hashedInput === superPassHash) {
+                // Fetch admin's PIN from database
+                const user_id = localStorage.getItem('user_id');
+                if (!user_id) {
+                  setPassError('Session expired. Please login again.');
+                  return;
+                }
+                
+                const { data: adminData, error: adminError } = await supabase
+                  .from('users')
+                  .select('pin')
+                  .eq('id', user_id)
+                  .single();
+                
+                if (adminError || !adminData) {
+                  setPassError('Failed to verify. Please try again.');
+                  return;
+                }
+                
+                if (passInput === adminData.pin) {
                   setShowPassPrompt(false);
                   setShowPassword(false);
                   const pending = pendingEdit; setPendingEdit(null);
                   if (pending) openEdit(pending.userId, pending.accountNumber);
                 } else {
-                  setPassError('Incorrect password');
+                  setPassError('Incorrect superpassword');
                 }
               }} className="modal-btn modal-primary">Continue</button>
             </div>

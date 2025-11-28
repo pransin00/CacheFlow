@@ -74,12 +74,6 @@ const LandingPage = () => {
               Experience<br />hassle-free banking
             </div>
             <div className="hero-sub">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with CacheFlow</div>
-
-            <div className="hero-buttons">
-              {/* Remove Get Started and Learn More for phone view */}
-              <button className="btn-primary get-started-btn">Get Started</button>
-              <button className="btn-outline learn-more-btn">Learn More →</button>
-            </div>
           </div>
 
           <img src={cardImg} alt="Card" className="hero-image" />

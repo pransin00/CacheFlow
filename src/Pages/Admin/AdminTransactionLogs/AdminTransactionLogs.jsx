@@ -265,14 +265,31 @@ export default function AdminTransactionLogs() {
             <div className="modal-actions">
               <button type="button" onClick={() => { setShowPassPrompt(false); setPendingTx(null); setPassInput(''); setPassError(''); setShowPassword(false); }} className="modal-btn modal-cancel">Cancel</button>
               <button type="button" onClick={async () => {
-                const hashedInput = await hashPassword(passInput);
-                if (hashedInput === superPassHash) {
+                // Fetch admin's PIN from database
+                const user_id = localStorage.getItem('user_id');
+                if (!user_id) {
+                  setPassError('Session expired. Please login again.');
+                  return;
+                }
+                
+                const { data: adminData, error: adminError } = await supabase
+                  .from('users')
+                  .select('pin')
+                  .eq('id', user_id)
+                  .single();
+                
+                if (adminError || !adminData) {
+                  setPassError('Failed to verify. Please try again.');
+                  return;
+                }
+                
+                if (passInput === adminData.pin) {
                   setShowPassPrompt(false);
                   setShowPassword(false);
                   const tx = pendingTx; setPendingTx(null);
                   if (tx) await loadTransactionDetails(tx);
                 } else {
-                  setPassError('Incorrect password');
+                  setPassError('Incorrect superpassword');
                 }
               }} className="modal-btn modal-primary">Continue</button>
             </div>

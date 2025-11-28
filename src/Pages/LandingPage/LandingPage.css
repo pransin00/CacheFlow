@@ -112,6 +112,122 @@
   height: auto;
 }
 
+/* Tablet breakpoint */
+@media (max-width: 968px) {
+  .landing-nav {
+    padding: 20px 3%;
+  }
+  
+  .landing-logo {
+    height: 80px;
+  }
+  
+  .landing-nav-right {
+    gap: 20px;
+  }
+  
+  .nav-link {
+    font-size: 16px;
+  }
+  
+  .hero-inner {
+    flex-direction: column;
+    padding: 40px 4%;
+  }
+  
+  .hero-left {
+    max-width: 100%;
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  
+  .hero-title {
+    font-size: 200%;
+  }
+  
+  .hero-sub {
+    font-size: 100%;
+  }
+  
+  .hero-image {
+    width: 70%;
+    max-width: 400px;
+  }
+  
+  .hero-buttons {
+    justify-content: center;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 640px) {
+  .landing-nav {
+    padding: 15px 3%;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .landing-logo {
+    height: 60px;
+    margin-right: 0;
+  }
+  
+  .landing-nav-right {
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .nav-link {
+    font-size: 14px;
+  }
+  
+  .btn-outline {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+  
+  .hero-inner {
+    padding: 30px 5%;
+  }
+  
+  .hero-left {
+    margin-bottom: 20px;
+  }
+  
+  .brand {
+    font-size: 16px;
+  }
+  
+  .hero-title {
+    font-size: 150%;
+  }
+  
+  .hero-sub {
+    font-size: 90%;
+  }
+  
+  .hero-image {
+    width: 90%;
+  }
+  
+  .hero-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .btn-primary,
+  .btn-outline {
+    width: 100%;
+    padding: 12px;
+  }
+  
+  .get-started-btn,
+  .learn-more-btn {
+    display: inline-block;
+  }
+}
+
 .divider {
   width: 100%;
   overflow: hidden;
@@ -126,6 +242,29 @@
 
 .services-section {
   scroll-margin-top: 0;
+}
+
+.services-cards-row {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 20px 60px 20px;
+}
+
+.service-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  background: white;
+  padding: 28px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(10, 60, 255, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.service-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(10, 60, 255, 0.15);
 }
 
 .about-section {
@@ -180,6 +319,75 @@
 .about-aside h3 { margin-top: 0; margin-bottom: 10px; color: #0f172a; }
 .about-aside ul { margin: 0; padding-left: 18px; color: #374151; line-height: 1.8; }
 
+/* Tablet breakpoint */
+@media (max-width: 968px) {
+  .services-cards-row {
+    padding: 0 15px 40px 15px;
+  }
+  
+  .service-card {
+    padding: 20px;
+    gap: 15px;
+  }
+  
+  .about-section {
+    padding: 40px 4%;
+  }
+  
+  .about-card {
+    padding: 24px;
+    gap: 24px;
+  }
+  
+  .about-main h2 {
+    font-size: 28px;
+  }
+  
+  .about-aside {
+    width: 100%;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 640px) {
+  .services-cards-row {
+    padding: 0 10px 30px 10px;
+    gap: 16px;
+  }
+  
+  .service-card {
+    flex-direction: column;
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .service-card img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
+  .about-section {
+    padding: 30px 5%;
+    min-height: auto;
+  }
+  
+  .about-card {
+    padding: 20px;
+  }
+  
+  .about-main {
+    min-width: 100%;
+  }
+  
+  .about-main h2 {
+    font-size: 24px;
+  }
+  
+  .about-text p {
+    font-size: 14px;
+  }
+}
+
 .project-meta { margin-top: 20px; padding: 14px; background: #fff; border-radius: 10px; box-shadow: 0 8px 24px rgba(2,6,23,0.04); }
 .project-meta .meta-title { font-size: 14px; color: #0f172a; font-weight: 800; }
 .project-meta .meta-val { color: #475569; margin-top: 6px; }
@@ -208,3 +416,61 @@
 .dots { position: absolute; bottom: 34px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
 .dot { width: 10px; height: 10px; border-radius: 10px; background: #e5e7eb; cursor: pointer; }
 .dot.active { background: #0a3cff; }
+
+/* Mobile/Tablet breakpoints for contact section */
+@media (max-width: 968px) {
+  .contact-section {
+    min-height: 100vh;
+    height: auto;
+  }
+  
+  .contact-heading h2 {
+    font-size: 28px;
+  }
+  
+  .contact-heading p {
+    font-size: 14px;
+    padding: 0 20px;
+  }
+  
+  .slide-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 640px) {
+  .contact-heading {
+    top: 20px;
+  }
+  
+  .contact-heading h2 {
+    font-size: 24px;
+  }
+  
+  .slide-card {
+    width: 150px !important;
+  }
+  
+  .avatar {
+    width: 100px;
+    height: 100px;
+    margin-bottom: -50px;
+  }
+  
+  .slide-body {
+    padding: 70px 12px 20px;
+  }
+  
+  .slide-name {
+    font-size: 14px;
+  }
+  
+  .slide-role {
+    font-size: 12px;
+  }
+  
+  .dots {
+    bottom: 20px;
+  }
+}
