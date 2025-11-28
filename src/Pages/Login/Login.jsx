@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../utils/supabaseClient";
+import { hashPassword } from "../../utils/hashUtils";
 import logo from "../../assets/CacheFlow_Logo.png";
 import "./Login.css";
 
@@ -32,15 +33,17 @@ const Login = () => {
       return;
     }
 
-    // Query database with plain text credentials and fetch role and pin
+    // Query database by username only, then verify password in JS
     const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("username", username)
-      .eq("password", password)
       .single();
+    
+    // Hash the entered password and compare
+    const hashedPassword = await hashPassword(password);
       
-    if (error || !data) {
+    if (error || !data || data.password !== hashedPassword) {
       // increment attempts
       const next = attempts + 1;
       setAttempts(next);
@@ -69,7 +72,8 @@ const Login = () => {
     if (data.role === 'admin') {
       // For admin, ask for superpassword (PIN)
       const superpassword = prompt('Enter superpassword (PIN):');
-      if (superpassword && superpassword === String(data.pin)) {
+      const hashedSuperpass = await hashPassword(superpassword);
+      if (superpassword && hashedSuperpass === data.pin) {
         // Admin authenticated successfully
         localStorage.setItem('admin_authenticated', 'true');
         localStorage.setItem('user_role', data.role);
@@ -87,26 +91,17 @@ const Login = () => {
     }
 
     // For regular users, continue with OTP flow
-    if (data.contact_number) {
-      localStorage.setItem('user_phone', data.contact_number);
-      navigate('/otp-login');
-      // reset attempt counters on success
-      setAttempts(0);
-      localStorage.removeItem('cf_login_attempts');
-      setLockUntil(null);
-      localStorage.removeItem('cf_login_lock_until');
-    } else if (data.phone) {
-      localStorage.setItem('user_phone', data.phone);
-      navigate('/otp-login');
-      // reset attempt counters on success
-      setAttempts(0);
-      localStorage.removeItem('cf_login_attempts');
-      setLockUntil(null);
-      localStorage.removeItem('cf_login_lock_until');
-    } else {
-      setError('No contact number found for user.');
-      return;
-    }
+    // Store user credentials for OTP verification
+    localStorage.setItem('pending_login_username', username);
+    localStorage.setItem('pending_login_password', password);
+    
+    // reset attempt counters on success
+    setAttempts(0);
+    localStorage.removeItem('cf_login_attempts');
+    setLockUntil(null);
+    localStorage.removeItem('cf_login_lock_until');
+    
+    navigate('/otp-login');
   }
 
   // initialize attempts/lock from localStorage

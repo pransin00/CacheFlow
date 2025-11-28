@@ -11,4 +11,11 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KE
 	console.warn('Warning: VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY not set. Falling back to embedded defaults. For local dev, create a .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: {
+    schema: 'public'
+  },
+  auth: {
+    persistSession: false
+  }
+});

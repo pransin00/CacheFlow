@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
+import { hashPassword } from '../../utils/hashUtils';
 import logo from '../../assets/CacheFlow_Logo.png';
 import viewPng from '../../assets/view.png';
 import hidePng from '../../assets/hide.png';
@@ -35,6 +36,21 @@ const OtpLogin = () => {
   const [resendClicked, setResendClicked] = useState(false);
   
   const inputRefs = useRef([]);
+
+  // Check if coming from Login page with pre-verified credentials
+  useEffect(() => {
+    const pendingUsername = localStorage.getItem('pending_login_username');
+    const pendingPassword = localStorage.getItem('pending_login_password');
+    
+    if (pendingUsername && pendingPassword) {
+      // Auto-fill credentials from Login page
+      setUsername(pendingUsername);
+      setPassword(pendingPassword);
+      // Clean up
+      localStorage.removeItem('pending_login_username');
+      localStorage.removeItem('pending_login_password');
+    }
+  }, []);
 
   useEffect(() => {
     if (step === 'otp' && timer > 0) {
@@ -90,14 +106,13 @@ const OtpLogin = () => {
       .from('users')
       .select('id, username, password, contact_number, role, pin, setup_token')
       .eq('username', username)
-      .eq('password', password)
       .single();
 
     console.log('Login attempt:', { username, hasData: !!data, error: loginError, role: data?.role });
 
-    
-
-    if (loginError || !data) {
+    // Hash password and verify in JavaScript
+    const hashedPassword = await hashPassword(password);
+    if (loginError || !data || data.password !== hashedPassword) {
       // increment attempts (only count actual auth attempts)
       const next = attempts + 1;
       setAttempts(next);
@@ -126,7 +141,8 @@ const OtpLogin = () => {
     if (data.role === 'admin') {
       // For admin, ask for superpassword (PIN)
       const superpassword = prompt('Enter superpassword (PIN):');
-      if (superpassword && superpassword === String(data.pin)) {
+      const hashedSuperpass = await hashPassword(superpassword);
+      if (superpassword && hashedSuperpass === data.pin) {
         // Admin authenticated successfully
         localStorage.setItem('admin_authenticated', 'true');
         localStorage.setItem('user_id', data.id);

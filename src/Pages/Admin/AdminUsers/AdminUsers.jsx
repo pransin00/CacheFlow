@@ -8,6 +8,9 @@ export default function AdminUsers() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
+  const [selectedUsers, setSelectedUsers] = useState([]); // for bulk delete
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [profileData, setProfileData] = useState(null);
     // --- component state (moved up so hooks are declared before functions that use them) ---
     const [showAdd, setShowAdd] = useState(false);
     const [firstName, setFirstName] = useState('');
@@ -88,8 +91,8 @@ export default function AdminUsers() {
       const merged = (accountsData || []).map(account => {
         const user = (usersData || []).find(u => u.id === account.user_id);
         const hasUsername = user && user.username && user.username.trim() !== '';
-        const hasPassword = user && user.password && !user.password.startsWith('TEMP_');
-        const hasPin = user && user.pin && user.pin !== '0000';
+        const hasPassword = user && user.password && user.password.trim() !== '';
+        const hasPin = user && user.pin && user.pin !== '0000' && user.pin.trim() !== '';
         const status = (hasUsername && hasPassword && hasPin) ? 'Active' : 'Pending';
         return { ...account, status };
       });
@@ -204,6 +207,95 @@ export default function AdminUsers() {
     }
     if (s[0] === '0') s = (Math.floor(1 + Math.random() * 9)).toString() + s.slice(1);
     return s;
+  }
+
+  // Handle checkbox selection
+  function handleSelectUser(userId, checked) {
+    if (checked) {
+      setSelectedUsers(prev => [...prev, userId]);
+    } else {
+      setSelectedUsers(prev => prev.filter(id => id !== userId));
+    }
+  }
+
+  // Handle select all checkbox
+  function handleSelectAll(checked, userIds) {
+    if (checked) {
+      setSelectedUsers(userIds);
+    } else {
+      setSelectedUsers([]);
+    }
+  }
+
+  // Handle bulk delete
+  async function handleBulkDelete() {
+    if (selectedUsers.length === 0) {
+      setError('No users selected');
+      return;
+    }
+    
+    // Prompt for admin PIN
+    const adminPin = prompt(`Delete ${selectedUsers.length} user(s)? Enter admin PIN:`);
+    if (!adminPin) return;
+    
+    try {
+      const userId = localStorage.getItem('user_id');
+      const { data: adminData } = await supabase
+        .from('users')
+        .select('pin')
+        .eq('id', userId)
+        .single();
+      
+      if (!adminData || adminData.pin !== adminPin) {
+        setError('Invalid PIN');
+        return;
+      }
+      
+      setLoading(true);
+      
+      // Delete accounts first, then users
+      await supabase.from('accounts').delete().in('user_id', selectedUsers);
+      await supabase.from('users').delete().in('id', selectedUsers);
+      
+      setSelectedUsers([]);
+      await loadUsers();
+      setSuccessMsg(`Deleted ${selectedUsers.length} user(s)`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      setError('Failed to delete users');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // View user profile
+  async function handleViewProfile(userId, accountNumber) {
+    try {
+      setLoading(true);
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const { data: accountData } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      setProfileData({
+        ...userData,
+        account_number: accountData?.account_number,
+        balance: accountData?.balance || 0
+      });
+      setShowUserProfile(true);
+    } catch (err) {
+      setError('Failed to load user profile');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function openPreview() {
@@ -376,6 +468,14 @@ export default function AdminUsers() {
           <option value="oldest">Oldest First</option>
         </select>
         <div style={{ color: '#666', fontSize: 13 }}>{rows.length} total accounts</div>
+        {selectedUsers.length > 0 && (
+          <button 
+            onClick={handleBulkDelete} 
+            style={{ padding: '8px 12px', borderRadius: 8, background: '#d32f2f', color: '#fff', border: 'none', cursor: 'pointer' }}
+          >
+            Delete ({selectedUsers.length})
+          </button>
+        )}
         </div>
         <div>
           <button onClick={() => setShowAdd(true)} style={{ padding: '8px 12px', borderRadius: 8, background: '#0a3cff', color: '#fff', border: 'none' }}>Add user</button>
@@ -412,15 +512,37 @@ export default function AdminUsers() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid #eef2ff' }}>
-                  <th style={{ padding: '6px 8px', width: '30%' }}>User ID</th>
-                  <th style={{ padding: '6px 8px', width: '30%' }}>Account Number</th>
+                  <th style={{ padding: '6px 8px', width: '5%' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedUsers.length === sorted.length && sorted.length > 0}
+                      onChange={e => handleSelectAll(e.target.checked, sorted.map(r => r.user_id))}
+                    />
+                  </th>
+                  <th style={{ padding: '6px 8px', width: '25%' }}>User ID</th>
+                  <th style={{ padding: '6px 8px', width: '25%' }}>Account Number</th>
                   <th style={{ padding: '6px 8px', width: '20%' }}>Status</th>
-                  <th style={{ padding: '6px 8px', width: '20%' }} aria-label="actions"></th>
+                  <th style={{ padding: '6px 8px', width: '25%' }} aria-label="actions"></th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((r, i) => (
-                  <tr key={`${r.user_id}-${i}`} style={{ borderBottom: '1px dashed #f6f8ff' }}>
+                  <tr 
+                    key={`${r.user_id}-${i}`} 
+                    style={{ borderBottom: '1px dashed #f6f8ff', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      // Don't trigger if clicking checkbox or edit button
+                      if (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON') return;
+                      handleViewProfile(r.user_id, r.account_number);
+                    }}
+                  >
+                    <td style={{ padding: '8px 8px' }} onClick={e => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedUsers.includes(r.user_id)}
+                        onChange={e => handleSelectUser(r.user_id, e.target.checked)}
+                      />
+                    </td>
                     <td style={{ padding: '8px 8px', fontFamily: 'monospace', fontSize: 13 }}>{r.user_id}</td>
                     <td style={{ padding: '8px 8px', fontFamily: 'monospace', fontSize: 13 }}>{maskAccount(r.account_number)}</td>
                     <td style={{ padding: '8px 8px' }}>
@@ -436,7 +558,7 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td style={{ padding: '8px 8px' }}>
-                      <button onClick={() => { setPendingEdit({ userId: r.user_id, accountNumber: r.account_number }); setPassError(''); setPassInput(''); setShowPassPrompt(true); }} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e6eefc', background: '#fff' }}>Edit</button>
+                      <button onClick={(e) => { e.stopPropagation(); setPendingEdit({ userId: r.user_id, accountNumber: r.account_number }); setPassError(''); setPassInput(''); setShowPassPrompt(true); }} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e6eefc', background: '#fff' }}>Edit</button>
                     </td>
                   </tr>
                 ))}
@@ -717,6 +839,85 @@ export default function AdminUsers() {
       )}
 
       {showToast && <div className="au-toast">{successMsg}</div>}
+
+      {showUserProfile && profileData && (
+        <div className="modal-overlay" onClick={() => setShowUserProfile(false)}>
+          <div className="modal-card" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 20 }}>User Profile</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 8, fontSize: 14 }}>
+                <strong>User ID:</strong><span>{profileData.id}</span>
+                <strong>Username:</strong><span>{profileData.username || 'N/A'}</span>
+                <strong>Full Name:</strong><span>{`${profileData.first_name || ''} ${profileData.middle_name || ''} ${profileData.last_name || ''}`.trim() || 'N/A'}</span>
+                <strong>Contact:</strong><span>{profileData.contact_number || 'N/A'}</span>
+                <strong>Account Number:</strong><span>{profileData.account_number || 'N/A'}</span>
+                <strong>Balance:</strong><span>₱{profileData.balance?.toLocaleString() || '0.00'}</span>
+                <strong>Role:</strong><span>{profileData.role || 'user'}</span>
+              </div>
+              
+              <div style={{ marginTop: 20, padding: '16px', background: '#f9fafb', borderRadius: 8 }}>
+                <h4 style={{ marginBottom: 12, fontSize: 15 }}>Reset Credentials</h4>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button 
+                    onClick={async () => {
+                      const newPassword = prompt('Enter new password for user:');
+                      if (!newPassword) return;
+                      
+                      const { hashPassword } = await import('../../../utils/hashUtils');
+                      const hashedPassword = await hashPassword(newPassword);
+                      
+                      const { error } = await supabase
+                        .from('users')
+                        .update({ password: hashedPassword })
+                        .eq('id', profileData.id);
+                      
+                      if (error) {
+                        alert('Failed to reset password');
+                      } else {
+                        alert('Password reset successfully');
+                        setShowUserProfile(false);
+                      }
+                    }}
+                    style={{ padding: '8px 12px', borderRadius: 6, background: '#ff9800', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  >
+                    Reset Password
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const newPin = prompt('Enter new 4-digit PIN for user:');
+                      if (!newPin || !/^\d{4}$/.test(newPin)) {
+                        alert('PIN must be 4 digits');
+                        return;
+                      }
+                      
+                      const { hashPassword } = await import('../../../utils/hashUtils');
+                      const hashedPin = await hashPassword(newPin);
+                      
+                      const { error } = await supabase
+                        .from('users')
+                        .update({ pin: hashedPin })
+                        .eq('id', profileData.id);
+                      
+                      if (error) {
+                        alert('Failed to reset PIN');
+                      } else {
+                        alert('PIN reset successfully');
+                        setShowUserProfile(false);
+                      }
+                    }}
+                    style={{ padding: '8px 12px', borderRadius: 6, background: '#f44336', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  >
+                    Reset PIN
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions" style={{ marginTop: 20 }}>
+              <button onClick={() => setShowUserProfile(false)} className="modal-btn modal-cancel">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

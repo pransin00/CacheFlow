@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../utils/supabaseClient";
+import { hashPassword } from "../../utils/hashUtils";
 import logo from "../../assets/CacheFlow_Logo.png";
 import userIcon from "../../assets/user.png";
 import viewIcon from "../../assets/view.png";
@@ -220,10 +221,14 @@ const SetupAccount = () => {
         setLoading(false);
         return;
       }
+      // Hash password and PIN before saving
+      const hashedPassword = await hashPassword(password);
+      const hashedPin = await hashPassword(pin);
+      
       // Update username, password and pin, clear setup_token
       const { error: updateError } = await supabase
         .from("users")
-        .update({ username: username.trim(), password: password, pin, setup_token: null })
+        .update({ username: username.trim(), password: hashedPassword, pin: hashedPin, setup_token: null })
         .eq("id", userData.id);
       if (updateError) {
         setError("Failed to set up account. Try again.");
