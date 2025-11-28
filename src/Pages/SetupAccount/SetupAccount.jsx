@@ -307,6 +307,10 @@ const SetupAccount = () => {
       // Store user_id for auto-login to dashboard
       localStorage.setItem('user_id', userData.id);
       
+      // Clear OTP lock data on successful setup
+      localStorage.removeItem('cf_setup_otp_attempts');
+      localStorage.removeItem('cf_setup_otp_lock_until');
+      
       // Show success modal
       setLoading(false);
       setShowSuccessModal(true);
@@ -316,7 +320,8 @@ const SetupAccount = () => {
         navigate("/dashboard");
       }, 2000);
     } catch (err) {
-      setError("Unexpected error. Try again.");
+      console.error('Setup error:', err);
+      setError(err.message || "Unexpected error. Try again.");
       setLoading(false);
     }
   }
