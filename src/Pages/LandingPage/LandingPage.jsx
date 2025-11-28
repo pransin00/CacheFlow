@@ -15,6 +15,7 @@ import ianImg from "../../assets/profile/ian.jpg";
 import jdImg from "../../assets/profile/jd.jpg";
 import matthewImg from "../../assets/profile/matthew.jpg";
 import djImg from "../../assets/profile/dj.jpg";
+import bsuLogo from '../../assets/bsu-logo.png';
 
 const services = [
   {
@@ -93,22 +94,63 @@ const LandingPage = () => {
       </div>
 
       <section id="services" className="services-section">
-        <div style={{ width: "100%", background: "#f5f7fa", padding: "0", margin: 0 }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 0 0 0" }}>
-            <h1 style={{ textAlign: "center", fontWeight: 700, fontSize: 40, marginBottom: 40, color: "#111" }}>Services</h1>
-            <div className="services-cards-row">
-              {services.map((s, i) => (
-                <div key={i} className="service-card">
-                  <img src={s.icon} alt="icon" style={{ width: 48, height: 48, marginTop: 4 }} />
-                  <div>
-                    <div style={{ color: s.color, fontWeight: 700, fontSize: 24, marginBottom: 8 }}>{s.title}</div>
-                    <div style={{ color: "#222", fontSize: 16, lineHeight: 1.5 }}>{s.desc}</div>
+          <div style={{ width: '100%', background: '#f5f7fa', padding: 0, margin: 0 }}>
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 0 0 0' }}>
+              <h1 style={{ textAlign: 'center', fontWeight: 700, fontSize: 40, marginBottom: 40, color: '#111' }}>Services</h1>
+              <div className="services-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '32px',
+                margin: '0 auto',
+                maxWidth: 1100,
+              }}>
+                {/* First column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                  <div className="service-card" style={{ background: 'linear-gradient(135deg, #e3f0ff 0%, #cbe2ff 100%)', borderRadius: 24, boxShadow: '0 2px 12px rgba(10,60,255,0.06)', padding: '32px 40px 28px 40px', minWidth: 370, display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                    <img src={piggyIcon} alt="Check Balance" style={{ width: 40, height: 40, marginRight: 18 }} />
+                    <div>
+                      <div style={{ color: '#1856c9', fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Check Balance</div>
+                      <div style={{ color: '#222', fontSize: 15, lineHeight: 1.5 }}>Stay in control of your finances anytime, anywhere. With CacheFlow, you can instantly view your account balances across all your accounts, giving you a clear snapshot of your available funds and helping you make smarter financial decisions.</div>
+                    </div>
+                  </div>
+                  <div className="service-card" style={{ background: 'linear-gradient(135deg, #e3f0ff 0%, #cbe2ff 100%)', borderRadius: 24, boxShadow: '0 2px 12px rgba(10,60,255,0.06)', padding: '32px 40px 28px 40px', minWidth: 370, display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                    <img src={transferIcon} alt="Transfer funds" style={{ width: 40, height: 40, marginRight: 18 }} />
+                    <div>
+                      <div style={{ color: '#1856c9', fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Transfer funds</div>
+                      <div style={{ color: '#222', fontSize: 15, lineHeight: 1.5 }}>Move money effortlessly between your own accounts or to other people. CacheFlow ensures fast, secure transfers with instant confirmation, giving you peace of mind and convenience for all your transactions.</div>
+                    </div>
                   </div>
                 </div>
-              ))}
+                {/* Second column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                  <div className="service-card" style={{ background: 'linear-gradient(135deg, #e3f0ff 0%, #cbe2ff 100%)', borderRadius: 24, boxShadow: '0 2px 12px rgba(10,60,255,0.06)', padding: '32px 40px 28px 40px', minWidth: 370, display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                    <img src={withdrawIcon} alt="Withdrawal" style={{ width: 40, height: 40, marginRight: 18 }} />
+                    <div>
+                      <div style={{ color: '#1856c9', fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Withdrawal</div>
+                      <div style={{ color: '#222', fontSize: 15, lineHeight: 1.5 }}>Access your money safely and conveniently whenever you need it. CacheFlow allows you to perform withdrawals quickly, with secure confirmation for every transaction, so you always know your funds are where you need them.</div>
+                    </div>
+                  </div>
+                  <div className="service-card" style={{ background: 'linear-gradient(135deg, #e3f0ff 0%, #cbe2ff 100%)', borderRadius: 24, boxShadow: '0 2px 12px rgba(10,60,255,0.06)', padding: '32px 40px 28px 40px', minWidth: 370, display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                    <img src={billIcon} alt="Payment / Pay Bills" style={{ width: 40, height: 40, marginRight: 18 }} />
+                    <div>
+                      <div style={{ color: '#1856c9', fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Payment / Pay Bills</div>
+                      <div style={{ color: '#222', fontSize: 15, lineHeight: 1.5 }}>Simplify your life by paying bills directly through CacheFlow. From utilities to subscriptions, you can handle recurring payments securely and instantly, saving time and avoiding long lines or late fees.</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Centered Transaction History card below both columns */}
+                <div style={{ gridColumn: '1 / span 2', display: 'flex', justifyContent: 'center', marginTop: 32 }}>
+                  <div className="service-card" style={{ background: 'linear-gradient(135deg, #e3f0ff 0%, #cbe2ff 100%)', borderRadius: 24, boxShadow: '0 2px 12px rgba(10,60,255,0.06)', padding: '32px 40px 28px 40px', minWidth: 370, maxWidth: 370, width: '100%', display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                    <img src={historyIcon} alt="Transaction History" style={{ width: 40, height: 40, marginRight: 18 }} />
+                    <div>
+                      <div style={{ color: '#1856c9', fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Transaction History</div>
+                      <div style={{ color: '#222', fontSize: 15, lineHeight: 1.5 }}>Keep complete records of all your financial activity. CacheFlow provides a detailed, easy-to-read history of deposits, withdrawals, payments, and transfers. Filter, search, and download your transactions anytime for effortless tracking and auditing.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
       </section>
 
       <section id="about" className="about-section">
@@ -161,8 +203,8 @@ const TeamSlideshow = () => {
   ];
 
   // Responsive: 2 per slide for phone view
-  const CARD_WIDTH = 180; // px for phone
-  const GAP = 12; // px for phone
+  const CARD_WIDTH = 220; // wider card
+  const GAP = 24;
   const visibleCount = window.innerWidth <= 640 ? 2 : 3;
 
   // build clone buffer for seamless loop
@@ -219,24 +261,16 @@ const TeamSlideshow = () => {
     <div className="slideshow-root">
       <button onClick={prev} aria-label="Previous" className="slide-btn prev">❮</button>
 
-      <div className="viewport" style={{ width: (CARD_WIDTH * visibleCount) + (GAP * (visibleCount - 1)), overflow: 'hidden' }}>
+      <div className="viewport" style={{ width: ((CARD_WIDTH + 80) * visibleCount) + (GAP * (visibleCount - 1)), overflow: 'hidden', minHeight: 440 }}>
         <div ref={trackRef} className="track" style={{ display: 'flex', gap: GAP, transform: `translateX(-${offset}px)`, transition: isTransitioning ? 'transform 600ms ease' : 'none', width: trackWidth }}>
           {slides.map((m, idx) => (
-            <div key={`${m.name}-${idx}`} className="slide-card" style={{ width: CARD_WIDTH }}>
-              <div className="slide-top" style={{ height: 260, background: m.color }}>
-                <div className="slide-top-deco" />
-                <div className="avatar">
-                  {m.img ? (
-                    <img src={m.img} alt={m.name} className="avatar-img" />
-                  ) : (
-                    m.name.split(' ').map(n => n[0]).slice(0, 2).join('')
-                  )}
-                </div>
+            <div key={`${m.name}-${idx}`} className="slide-card" style={{ width: CARD_WIDTH + 40, minHeight: 400, position: 'relative', overflow: 'hidden' }}>
+              <div className="slide-top" style={{ height: 240, borderTopLeftRadius: 12, borderTopRightRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'none' }}>
+                <img src={m.img} alt={m.name} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: '100%', height: '100%', objectFit: 'cover', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
               </div>
-
-              <div className="slide-body">
-                <div className="slide-name">{m.name}</div>
-                <div className="slide-role">{m.role}</div>
+              <div className="slide-body" style={{ padding: '40px 18px 24px', textAlign: 'center' }}>
+                <div className="slide-name" style={{ fontWeight: 800, color: '#111', fontSize: 20 }}>{m.name}</div>
+                <div className="slide-role" style={{ color: '#6b7280', marginTop: 8, fontSize: 16 }}>{m.role}</div>
               </div>
             </div>
           ))}

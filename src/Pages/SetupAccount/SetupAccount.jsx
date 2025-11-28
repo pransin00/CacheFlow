@@ -185,7 +185,7 @@ const SetupAccount = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           phoneNumbers: [contactNumber],
-          message: `Your CacheFlow verification code is: {{OTP}}` // Custom message without link
+          customMessage: `Your CacheFlow verification code is: {OTP}` // Custom message without link
         })
       });
 
@@ -289,20 +289,31 @@ const SetupAccount = () => {
         setLoading(false);
         return;
       }
-      // Hash password and PIN before saving
+      // Hash password only (PIN stays as 4-digit number for database constraint)
       const hashedPassword = await hashPassword(password);
-      const hashedPin = await hashPassword(pin);
       
-      // Update username, password and pin, clear setup_token
+      // Update username, password and pin
       const { error: updateError } = await supabase
         .from("users")
-        .update({ username: username.trim(), password: hashedPassword, pin: hashedPin, setup_token: null })
+        .update({ 
+          username: username.trim(), 
+          password: hashedPassword, 
+          pin: pin
+        })
         .eq("id", userData.id);
+        
       if (updateError) {
-        setError("Failed to set up account. Try again.");
+        console.error("Update error:", updateError);
+        setError(`Failed to set up account: ${updateError.message}`);
         setLoading(false);
         return;
       }
+      
+      // Clear setup_token in a separate update to avoid constraint issues
+      await supabase
+        .from("users")
+        .update({ setup_token: null })
+        .eq("id", userData.id);
       
       // Store user_id for auto-login to dashboard
       localStorage.setItem('user_id', userData.id);

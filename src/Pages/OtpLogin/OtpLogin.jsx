@@ -383,7 +383,7 @@ const OtpLogin = () => {
     <div className="otp-root">
       <div className="otp-header">
         <img src={logo} alt="CacheFlow Logo" className="otp-logo" />
-        <div className="otp-desc">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with Reen Bank.</div>
+        <div className="otp-desc">Experience simple, secure, and stress-free banking. Say goodbye to long queues and complex procedures and hello to hassle-free banking with CacheFlow.</div>
       </div>
       <div className="otp-container">
         {step === 'login' && (

@@ -319,8 +319,23 @@
 .about-aside h3 { margin-top: 0; margin-bottom: 10px; color: #0f172a; }
 .about-aside ul { margin: 0; padding-left: 18px; color: #374151; line-height: 1.8; }
 
+/* Services section responsive styles */
+.services-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin: 0 auto;
+  max-width: 1100px;
+}
+
 /* Tablet breakpoint */
 @media (max-width: 968px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 0 20px;
+  }
+  
   .services-cards-row {
     padding: 0 15px 40px 15px;
   }
@@ -328,6 +343,8 @@
   .service-card {
     padding: 20px;
     gap: 15px;
+    min-width: auto !important;
+    max-width: 100% !important;
   }
   
   .about-section {
@@ -350,6 +367,12 @@
 
 /* Mobile breakpoint */
 @media (max-width: 640px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 15px;
+  }
+  
   .services-cards-row {
     padding: 0 10px 30px 10px;
     gap: 16px;
@@ -359,6 +382,8 @@
     flex-direction: column;
     padding: 20px;
     text-align: center;
+    min-width: auto !important;
+    max-width: 100% !important;
   }
   
   .service-card img {
@@ -441,11 +466,16 @@
 
 @media (max-width: 640px) {
   .contact-heading {
-    top: 20px;
+    top: 8px;
   }
   
   .contact-heading h2 {
     font-size: 24px;
+    margin-bottom: 4px;
+  }
+  
+  .contact-heading p {
+    font-size: 12px;
   }
   
   .slide-card {
