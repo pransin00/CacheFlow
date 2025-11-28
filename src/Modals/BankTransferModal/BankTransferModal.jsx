@@ -285,6 +285,13 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
     }
     // Insert transaction record
     const newBalance = senderAccount.balance - totalDeduct;
+    // Format recipient name with asterisks for privacy
+    const formatRecipientInitials = (name) => {
+      if (!name) return '';
+      const words = name.split(' ').filter(w => w.length > 0);
+      if (words.length === 0) return '';
+      return words.map(word => word.charAt(0).toUpperCase() + '*'.repeat(word.length - 1)).join(' ');
+    };
     const { data: tx, error: txErr } = await supabase
       .from('transactions')
       .insert([{
@@ -297,6 +304,7 @@ const BankTransferModal = ({ isOpen, onClose, onConfirm }) => {
   transaction_status: 'Successfully Completed',
         bank: bank,
         recipient_account_number: accountNumber,
+        recipient_initials: formatRecipientInitials(accountName),
         remaining_balance: newBalance, // Save the new balance
       }])
       .select()

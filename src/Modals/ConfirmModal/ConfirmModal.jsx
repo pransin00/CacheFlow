@@ -1,7 +1,20 @@
 import React from 'react';
 import Modal from '../Modal/Modal';
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
+const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => {
+  // Format name with first letter and asterisks for privacy (like receipt)
+  const formatRecipientName = (name) => {
+    if (!name) return '';
+    const words = name.split(' ').filter(w => w.length > 0);
+    if (words.length === 0) return '';
+    
+    // Format each word with first letter and asterisks
+    return words.map(word => 
+      word.charAt(0).toUpperCase() + '*'.repeat(word.length - 1)
+    ).join(' ');
+  };
+
+  return (
   <Modal isOpen={isOpen} onClose={onClose}>
     <div style={{
       padding: '2vw 2vw 1vw 2vw',
@@ -26,7 +39,9 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
       <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
         {details?.bank && <div><b>Bank:</b> {details.bank}</div>}
         <div><b>Account Number:</b> {details?.accountNumber || 'N/A'}</div>
-  {/* Removed Account Name for paybills */}
+        {details?.accountName && (
+          <div><b>Recipient:</b> {formatRecipientName(details.accountName)}</div>
+        )}
         <div><b>Amount:</b> {details?.amount || 'N/A'}</div>
         {details?.receiverNumber && <div><b>Receiver's Number:</b> {details.receiverNumber}</div>}
         {details?.remarks && <div><b>Remarks:</b> {details.remarks}</div>}
@@ -59,6 +74,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => (
       </div>
     </div>
   </Modal>
-);
+  );
+};
 
 export default ConfirmModal;

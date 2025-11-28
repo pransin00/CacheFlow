@@ -174,9 +174,8 @@ const Transactions = () => {
       if (accountData && accountData.id) {
         let query = supabase
           .from('transactions')
-          // include the textual 'type' column as a fallback when the relation is missing
-          // NOTE: do NOT request non-existent columns (e.g. expires_at) to avoid 400 errors
-          .select('id, amount, type, type_id, date, transaction_status, transaction_types(name)')
+          // only include fields that exist in the database schema
+          .select('id, amount, type, type_id, date, transaction_status, description, bank, remaining_balance, recipient_account_number, transaction_types(name)')
           .eq('account_id', accountData.id)
           .order('date', { ascending: false });
 
@@ -236,8 +235,8 @@ const Transactions = () => {
             console.debug('Attempting fallback transactions query (no relation)');
             const { data: txs2, error: txErr2 } = await supabase
               .from('transactions')
-              // fallback: simpler projection without relations or non-existent columns
-              .select('id, amount, type, type_id, date, transaction_status')
+              // fallback: simpler projection without relations
+              .select('id, amount, type, type_id, date, transaction_status, description, bank, remaining_balance, recipient_account_number')
               .eq('account_id', accountData.id)
               .order('date', { ascending: false });
             if (txErr2) {
@@ -436,26 +435,7 @@ const Transactions = () => {
                 return (
                   <tr key={tx.id} onClick={() => setSelectedTx(tx)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setSelectedTx(tx); }} style={{ borderBottom: '1px solid #f5f7fa', cursor: 'pointer' }}>
                     <td style={{ padding: '0.7vw', color: '#222' }}>{tx.date ? new Date(tx.date).toLocaleString() : ''}</td>
-                    <td
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const dbName = tx.transaction_types?.name || tx.type;
-                        if (!dbName) return;
-                        const uiLabel = dbNameToUILabel[dbName] || dbName;
-                        setCategoryFilter(uiLabel);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const dbName = tx.transaction_types?.name || tx.type;
-                          const uiLabel = dbNameToUILabel[dbName] || dbName;
-                          setCategoryFilter(uiLabel);
-                        }
-                      }}
-                      style={{ padding: '0.7vw', color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}
-                      title={(tx.transaction_types?.name || tx.type) ? `Show only ${tx.transaction_types?.name || tx.type}` : ''}
-                    >
+                    <td style={{ padding: '0.7vw', color: '#222' }}>
                       {tx.transaction_types?.name || tx.type || 'Transaction'}
                     </td>
                     <td style={{ padding: '0.7vw', textAlign: 'right', fontWeight: 700, color: amountColor }}>
@@ -491,8 +471,7 @@ const Transactions = () => {
                   const description = tx.description || tx.note || '-';
                   const reference = tx.id || '-';
                   const bank = tx.bank || '-';
-                  const code = tx.code || '-';
-                  const expires = tx.expires_at ? new Date(tx.expires_at).toLocaleString() : '-';
+                  const recipientAccount = tx.recipient_account_number || '-';
                   const remaining = tx.remaining_balance !== undefined && tx.remaining_balance !== null ? Number(tx.remaining_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
 
                   const row = (label, value, valueStyle) => (
@@ -513,12 +492,32 @@ const Transactions = () => {
 
                   // Optional fields: only include them when present (not null/empty)
                   if (description && description !== '-') rowsToShow.push(row('Description', description));
-                  if (bank && bank !== '-') rowsToShow.push(row('Bank / Location', bank));
-
-                  // Show code/expires only for withdrawals (type_id 4 or textual match)
-                  const showsWithdrawal = Number(tx.type_id) === 4 || (type || '').toString().toLowerCase().includes('withdrawal');
-                  if (showsWithdrawal && code && code !== '-') rowsToShow.push(row('Code', code));
-                  if (showsWithdrawal && tx.expires_at) rowsToShow.push(row('Expires At', expires));
+                  
+                  // Fund Transfer: show recipient account number
+                  const isFundTransfer = Number(tx.type_id) === 1 || (type || '').toString().toLowerCase().includes('fund transfer');
+                  if (isFundTransfer && recipientAccount !== '-') {
+                    rowsToShow.push(row('Recipient Account', recipientAccount));
+                  }
+                  
+                  // Bank Transfer: show recipient account number and bank
+                  const isBankTransfer = Number(tx.type_id) === 2 || (type || '').toString().toLowerCase().includes('bank transfer');
+                  if (isBankTransfer) {
+                    if (recipientAccount !== '-') rowsToShow.push(row('Recipient Account', recipientAccount));
+                    if (bank && bank !== '-') rowsToShow.push(row('Bank', bank));
+                  }
+                  
+                  // Bill Payment: show biller and reference number
+                  const isBillPayment = Number(tx.type_id) === 3 || (type || '').toString().toLowerCase().includes('bill payment');
+                  if (isBillPayment) {
+                    if (bank && bank !== '-') rowsToShow.push(row('Biller', bank));
+                    if (recipientAccount !== '-') rowsToShow.push(row('Reference Number', recipientAccount));
+                  }
+                  
+                  // Withdrawal: show location
+                  const isWithdrawal = Number(tx.type_id) === 4 || (type || '').toString().toLowerCase().includes('withdrawal');
+                  if (isWithdrawal && bank && bank !== '-') {
+                    rowsToShow.push(row('Location', bank));
+                  }
 
                   if (remaining !== '-') rowsToShow.push(row('Remaining Balance', remaining));
 

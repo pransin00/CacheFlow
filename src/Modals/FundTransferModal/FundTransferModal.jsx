@@ -475,22 +475,11 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
           isOpen={showUnregisteredModal}
           accountNumber={unregisteredDetails?.accountNumber}
           onClose={() => setShowUnregisteredModal(false)}
-          onContinue={() => {
-            setShowUnregisteredModal(false);
-            setPendingDetails({
-              accountNumber: unregisteredDetails?.accountNumber,
-              maskedName: '',
-              amount: unregisteredDetails?.amount,
-              remarks: unregisteredDetails?.remarks,
-              unregistered: true
-            });
-            setShowConfirm(true);
-          }}
         />
       )}
     <>
       {/* Main Fund Transfer Modal (hidden during processing/success) */}
-      <Modal isOpen={isOpen && !pendingTransfer && !showSuccess && !showUnregisteredModal && !showUnverifiedModal && !showConfirm && !showOtp} onClose={onClose}>
+      <Modal isOpen={isOpen && !pendingTransfer && !showSuccess && !showUnregisteredModal && !showUnverifiedModal && !showConfirm && !showOtp && !loading} onClose={onClose}>
         <div style={{
           padding: '2.5vw 2.5vw 2vw 2.5vw',
           minWidth: 380,
@@ -628,7 +617,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       </Modal>
       {/* Confirmation Modal */}
       <ConfirmModal
-        isOpen={showConfirm && !pendingTransfer && !showSuccess && !showOtp && !showUnverifiedModal}
+        isOpen={showConfirm && !pendingTransfer && !showSuccess && !showOtp && !showUnverifiedModal && !loading}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleConfirm}
         details={{
@@ -712,7 +701,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         <ProcessingModal isOpen={true} />
       )}
       <OtpModal
-        isOpen={showOtp && !pendingTransfer && !showSuccess && !showConfirm && !showUnverifiedModal}
+        isOpen={showOtp && !pendingTransfer && !showSuccess && !showConfirm && !showUnverifiedModal && !loading}
         onClose={() => setShowOtp(false)}
         onVerify={handleOtpVerify}
         onResend={handleResend}

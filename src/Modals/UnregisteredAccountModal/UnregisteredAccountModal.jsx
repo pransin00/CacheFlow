@@ -26,23 +26,11 @@ const UnregisteredAccountModal = ({ isOpen, onClose, onContinue, accountNumber }
       <div style={{ width: '100%', marginBottom: '1.5vw', color: '#222', fontSize: '1vw' }}>
         <div><b>Account Number:</b> {accountNumber}</div>
         <div style={{ marginTop: '1vw' }}>
-          The account number is not registered. Would you still like to continue?
+          The account number is not registered in the system. Please verify the account number and try again.
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
         <button type="button" onClick={onClose} style={{
-          background: '#e0e0e0',
-          color: '#222',
-          border: 'none',
-          borderRadius: '0.7vw',
-          padding: '1vw 2vw',
-          fontWeight: 600,
-          fontSize: '1vw',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-        }}>Cancel</button>
-        <button type="button" onClick={onContinue} style={{
           background: '#1856c9',
           color: '#fff',
           border: 'none',
@@ -53,7 +41,7 @@ const UnregisteredAccountModal = ({ isOpen, onClose, onContinue, accountNumber }
           cursor: 'pointer',
           fontFamily: 'inherit',
           boxShadow: '0 2px 6px rgba(24,86,201,0.10)',
-        }}>Continue Anyway</button>
+        }}>OK</button>
       </div>
     </div>
   </Modal>

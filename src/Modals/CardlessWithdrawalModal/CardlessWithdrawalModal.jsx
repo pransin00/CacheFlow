@@ -122,7 +122,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
-          // Time expired - mark as Successful and deduct balance
+          // Time expired - mark as Unsuccessful and refund balance
           if (transactionId && withdrawalAmount) {
             (async () => {
               try {
@@ -139,30 +139,30 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                   .single();
 
                 if (accErr || !accData) {
-                  console.error('Failed to fetch account for balance deduction:', accErr);
+                  console.error('Failed to fetch account for balance refund:', accErr);
                   return;
                 }
 
-                const newBalance = accData.balance - withdrawalAmount;
+                const newBalance = accData.balance + withdrawalAmount;
 
-                // Update account balance
+                // Refund account balance
                 await supabase
                   .from('accounts')
                   .update({ balance: newBalance })
                   .eq('id', accData.id);
 
-                // Update transaction status to Successful
+                // Update transaction status to Unsuccessful
                 await supabase
                   .from('transactions')
                   .update({ 
-                    transaction_status: 'Successful',
+                    transaction_status: 'Unsuccessful',
                     remaining_balance: newBalance
                   })
                   .eq('id', transactionId);
 
                 window.dispatchEvent(new CustomEvent('transactions:refresh'));
               } catch (err) {
-                console.error('Failed to process successful withdrawal:', err);
+                console.error('Failed to process unsuccessful withdrawal:', err);
               }
             })();
           }
@@ -474,16 +474,49 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
   };
 
   const handleCancelWithdrawal = async () => {
-    // Mark transaction as Unsuccessful
-    if (transactionId) {
+    // Mark transaction as Successful and deduct balance (user claimed the withdrawal)
+    if (transactionId && withdrawalAmount) {
       try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) return;
+
+        // Get current account balance
+        const { data: accData, error: accErr } = await supabase
+          .from('accounts')
+          .select('id, balance')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (accErr || !accData) {
+          console.error('Failed to fetch account for balance deduction:', accErr);
+          return;
+        }
+
+        const newBalance = accData.balance - withdrawalAmount;
+
+        // Deduct balance
+        await supabase
+          .from('accounts')
+          .update({ balance: newBalance })
+          .eq('id', accData.id);
+
+        // Update transaction status to Successful
         await supabase
           .from('transactions')
-          .update({ transaction_status: 'Unsuccessful' })
+          .update({ 
+            transaction_status: 'Successful',
+            remaining_balance: newBalance
+          })
           .eq('id', transactionId);
+
         window.dispatchEvent(new CustomEvent('transactions:refresh'));
+        
+        // Refresh the page to update balance
+        window.location.reload();
       } catch (err) {
-        console.error('Failed to update transaction status to Unsuccessful:', err);
+        console.error('Failed to update transaction status to Successful:', err);
       }
     }
     // Clear localStorage and close
@@ -749,21 +782,23 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
             )}
             <p style={{ marginBottom: '1rem' }}>
               Your withdrawal code is valid for 10 minutes.<br />
-              Proceed to the selected ATM/branch and follow the instructions.
+              Proceed to the selected ATM/branch to withdraw, then click "Claimed" below.<br/>
+              <small style={{ color: '#666' }}>If not claimed within 10 minutes, the withdrawal will be automatically cancelled.</small>
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button
                 onClick={handleCancelWithdrawal}
                 style={{
                   padding: '0.5rem 1rem',
-                  border: '1px solid #ccc',
+                  border: 'none',
                   borderRadius: '4px',
-                  background: 'white',
-                  color: '#333',
-                  cursor: 'pointer'
+                  background: '#4CAF50',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 500
                 }}
               >
-                Cancel Withdrawal
+                Claimed
               </button>
               <button
                 onClick={handleClose}
