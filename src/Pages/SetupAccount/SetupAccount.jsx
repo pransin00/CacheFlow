@@ -27,6 +27,9 @@ const SetupAccount = () => {
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState(null);
+  const [lockRemaining, setLockRemaining] = useState(0);
   const navigate = useNavigate();
   const inputRefs = useRef([]);
 
@@ -70,6 +73,36 @@ const SetupAccount = () => {
     }
   }, [timer, step]);
 
+  // Lock countdown
+  useEffect(() => {
+    if (lockUntil && lockUntil > Date.now()) {
+      const interval = setInterval(() => {
+        const remaining = Math.ceil((lockUntil - Date.now()) / 1000);
+        if (remaining > 0) {
+          setLockRemaining(remaining);
+        } else {
+          setLockUntil(null);
+          setLockRemaining(0);
+          setOtpAttempts(0);
+          localStorage.removeItem('cf_setup_otp_attempts');
+          localStorage.removeItem('cf_setup_otp_lock_until');
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lockUntil]);
+
+  // Initialize attempts from localStorage
+  useEffect(() => {
+    const attempts = parseInt(localStorage.getItem('cf_setup_otp_attempts') || '0', 10);
+    const lockTime = parseInt(localStorage.getItem('cf_setup_otp_lock_until') || '0', 10);
+    setOtpAttempts(attempts);
+    if (lockTime > Date.now()) {
+      setLockUntil(lockTime);
+      setLockRemaining(Math.ceil((lockTime - Date.now()) / 1000));
+    }
+  }, []);
+
   const handleOtpChange = (idx, value) => {
     if (!/^[0-9]?$/.test(value)) return;
     const newOtp = [...otp];
@@ -89,6 +122,13 @@ const SetupAccount = () => {
   async function handleVerifyOtp(e) {
     e.preventDefault();
     setError('');
+    
+    // Check if locked
+    if (lockUntil && Date.now() < lockUntil) {
+      setError(`Too many failed attempts. Try again in ${lockRemaining}s`);
+      return;
+    }
+    
     const entered = otp.join('').trim();
     const expected = (sentOtp || '').toString().trim();
     
@@ -102,22 +142,50 @@ const SetupAccount = () => {
     }
     
     if (entered === expected && expected !== '') {
+      // Success - reset attempts
+      setOtpAttempts(0);
+      setLockUntil(null);
+      setLockRemaining(0);
+      localStorage.removeItem('cf_setup_otp_attempts');
+      localStorage.removeItem('cf_setup_otp_lock_until');
       setStep('setup');
     } else {
-      setError('Invalid OTP code. Please try again.');
+      // Failed - increment attempts
+      const newAttempts = otpAttempts + 1;
+      setOtpAttempts(newAttempts);
+      localStorage.setItem('cf_setup_otp_attempts', String(newAttempts));
+      
+      if (newAttempts >= 3) {
+        const lockTime = Date.now() + 60_000; // 1 minute
+        setLockUntil(lockTime);
+        setLockRemaining(60);
+        localStorage.setItem('cf_setup_otp_lock_until', String(lockTime));
+        setError('Too many failed attempts. Try again in 60s');
+      } else {
+        setError('Invalid OTP code. Please try again.');
+      }
     }
   }
 
   async function handleResendOtp() {
     setError('');
+    
+    // Check if locked
+    if (lockUntil && Date.now() < lockUntil) {
+      setError(`Resend disabled. Try again in ${lockRemaining}s`);
+      return;
+    }
+    
     setLoading(true);
     
     try {
+      // Send only OTP code via SMS (no setup link)
       const response = await fetch('http://localhost:3001/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          phoneNumbers: [contactNumber]
+          phoneNumbers: [contactNumber],
+          message: `Your CacheFlow verification code is: {{OTP}}` // Custom message without link
         })
       });
 
@@ -285,15 +353,17 @@ const SetupAccount = () => {
                 ))}
               </div>
               <div className="otp-timer">0:{timer.toString().padStart(2, '0')} remaining</div>
-              <button type="submit" className="setup-button" disabled={loading}>
-                Verify OTP
+              <button type="submit" className="setup-button" disabled={loading || (lockUntil && Date.now() < lockUntil)}>
+                {lockUntil && Date.now() < lockUntil ? `Locked (${lockRemaining}s)` : 'Verify OTP'}
               </button>
               <div className="otp-resend">
                 Didn't receive the code? {
-                  timer === 0 ? (
+                  (timer === 0 && (!lockUntil || Date.now() >= lockUntil)) ? (
                     <span className="otp-resend-link" onClick={handleResendOtp}>Resend</span>
                   ) : (
-                    <span className="otp-resend-disabled">Resend</span>
+                    <span className="otp-resend-disabled">
+                      {lockUntil && Date.now() < lockUntil ? `Locked (${lockRemaining}s)` : 'Resend'}
+                    </span>
                   )
                 }
               </div>
