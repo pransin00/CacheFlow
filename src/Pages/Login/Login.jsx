@@ -194,7 +194,7 @@ const Login = () => {
               <button type="submit" className="btn-submit" disabled={lockUntil && Date.now() < lockUntil}>Login</button>
             </form>
             <div className="register-cta">
-              Don’t Have an Account? <a href="#">Register</a>
+              Don't Have an Account? <a href="#">Register</a>
             </div>
           </div>
         </div>

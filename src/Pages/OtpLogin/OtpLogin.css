@@ -48,6 +48,13 @@
   flex-direction: column;
 }
 
+.quick-balance-link {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
 .otp-title { 
   font-weight: 700; 
   font-size: 32px; 

@@ -8,6 +8,7 @@ import Maps from './Pages/Maps/Maps';
 import Transactions from './Pages/Transactions/Transactions';
 import Admin from './Pages/Admin/Admin';
 import SetupAccount from './Pages/SetupAccount/SetupAccount';
+import CheckBalance from './Pages/CheckBalance/CheckBalance';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<OtpLogin />} />
+        <Route path="/check-balance" element={<CheckBalance />} />
         <Route path="/setup-account" element={<SetupAccount />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />

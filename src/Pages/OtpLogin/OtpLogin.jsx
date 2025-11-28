@@ -403,6 +403,11 @@ const OtpLogin = () => {
             <button type="submit" disabled={loading || (lockUntil && Date.now() < lockUntil)} className="otp-button">{loading ? 'Sending OTP...' : 'Login'}</button>
             {error && <div className="otp-error">{error}</div>}
             {info && <div className="otp-info">{info}</div>}
+            <div className="quick-balance-link">
+              <span onClick={() => navigate('/check-balance')} style={{ cursor: 'pointer', color: '#1976d2', textDecoration: 'underline' }}>
+                Just want to check balance?
+              </span>
+            </div>
           </form>
         )}
 
