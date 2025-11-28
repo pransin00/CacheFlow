@@ -110,9 +110,10 @@ const OtpLogin = () => {
 
     console.log('Login attempt:', { username, hasData: !!data, error: loginError, role: data?.role });
 
-    // Hash password and verify in JavaScript
+    // Hash password and verify in JavaScript (with plain text fallback)
     const hashedPassword = await hashPassword(password);
-    if (loginError || !data || data.password !== hashedPassword) {
+    const passwordMatch = data && (data.password === hashedPassword || data.password === password);
+    if (loginError || !data || !passwordMatch) {
       // increment attempts (only count actual auth attempts)
       const next = attempts + 1;
       setAttempts(next);
@@ -142,7 +143,8 @@ const OtpLogin = () => {
       // For admin, ask for superpassword (PIN)
       const superpassword = prompt('Enter superpassword (PIN):');
       const hashedSuperpass = await hashPassword(superpassword);
-      if (superpassword && hashedSuperpass === data.pin) {
+      const pinMatch = hashedSuperpass === data.pin || superpassword === data.pin;
+      if (superpassword && pinMatch) {
         // Admin authenticated successfully
         localStorage.setItem('admin_authenticated', 'true');
         localStorage.setItem('user_id', data.id);

@@ -40,10 +40,11 @@ const Login = () => {
       .eq("username", username)
       .single();
     
-    // Hash the entered password and compare
+    // Hash the entered password and compare (with plain text fallback)
     const hashedPassword = await hashPassword(password);
+    const passwordMatch = data && (data.password === hashedPassword || data.password === password);
       
-    if (error || !data || data.password !== hashedPassword) {
+    if (error || !data || !passwordMatch) {
       // increment attempts
       const next = attempts + 1;
       setAttempts(next);
@@ -73,7 +74,8 @@ const Login = () => {
       // For admin, ask for superpassword (PIN)
       const superpassword = prompt('Enter superpassword (PIN):');
       const hashedSuperpass = await hashPassword(superpassword);
-      if (superpassword && hashedSuperpass === data.pin) {
+      const pinMatch = hashedSuperpass === data.pin || superpassword === data.pin;
+      if (superpassword && pinMatch) {
         // Admin authenticated successfully
         localStorage.setItem('admin_authenticated', 'true');
         localStorage.setItem('user_role', data.role);

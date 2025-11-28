@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hash Password/PIN Helper</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #0a3cff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+    }
+    button:hover {
+      background: #0830cc;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .label {
+      font-weight: bold;
+      margin-top: 15px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Hash Password/PIN Helper</h1>
+    <p>Enter your admin password or PIN to get the SHA-256 hash. Update your database with these hashed values.</p>
+    
+    <label class="label">Enter Password or PIN:</label>
+    <input type="text" id="inputValue" placeholder="e.g., admin123 or 1234">
+    
+    <button onclick="hashValue()">Generate Hash</button>
+    <button onclick="copyToClipboard()">Copy Hash</button>
+    
+    <div id="result" class="result" style="display: none;">
+      <strong>SHA-256 Hash:</strong><br>
+      <span id="hashOutput"></span>
+    </div>
+
+    <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+      <strong>Quick Reference:</strong><br><br>
+      <strong>admin123</strong> → 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9<br>
+      <strong>admin12345</strong> → 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918<br>
+      <strong>1234</strong> → 03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4
+    </div>
+  </div>
+
+  <script>
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex;
+    }
+
+    async function hashValue() {
+      const input = document.getElementById('inputValue').value;
+      if (!input) {
+        alert('Please enter a value to hash');
+        return;
+      }
+      
+      const hash = await hashPassword(input);
+      document.getElementById('hashOutput').textContent = hash;
+      document.getElementById('result').style.display = 'block';
+    }
+
+    function copyToClipboard() {
+      const hash = document.getElementById('hashOutput').textContent;
+      if (!hash) {
+        alert('Generate a hash first');
+        return;
+      }
+      
+      navigator.clipboard.writeText(hash).then(() => {
+        alert('Hash copied to clipboard!');
+      });
+    }
+
+    // Allow Enter key to generate hash
+    document.getElementById('inputValue').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        hashValue();
+      }
+    });
+  </script>
+</body>
+</html>
