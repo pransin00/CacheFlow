@@ -121,21 +121,19 @@ export default function Admin() {
               </button>
               <button 
                 onClick={async () => {
-                  const newPin = prompt('Enter new 4-digit PIN:');
-                  if (!newPin || !/^\d{4}$/.test(newPin)) {
-                    alert('PIN must be 4 digits');
-                    return;
-                  }
-                  
-                  const { hashPassword } = await import('../../utils/hashUtils');
-                  const hashedPin = await hashPassword(newPin);
-                  
-                  const { error } = await supabase
-                    .from('users')
-                    .update({ pin: hashedPin })
-                    .eq('id', adminData.id);
-                  
-                  if (error) {
+                      const newPin = prompt('Enter new 4-digit PIN:');
+                      if (!newPin || !/^\d{4}$/.test(newPin)) {
+                        alert('PIN must be 4 digits');
+                        return;
+                      }
+                      
+                      const { hashPassword } = await import('../../utils/hashUtils');
+                      const hashedPin = await hashPassword(newPin);
+                      
+                      const { error } = await supabase
+                        .from('users')
+                        .update({ pin: hashedPin })
+                        .eq('id', adminData.id);                  if (error) {
                     alert('Failed to reset PIN');
                   } else {
                     alert('PIN reset successfully');
