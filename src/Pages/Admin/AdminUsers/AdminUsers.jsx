@@ -393,14 +393,14 @@ export default function AdminUsers() {
             // Wait 3 seconds before sending second message
             await new Promise(resolve => setTimeout(resolve, 3000));
             
-            // Send second message: Setup link (shortened without http://)
+            // Send second message: Setup link with detailed instructions
             const shortLink = setupLink.replace('http://', '').replace('https://', '');
             const linkResponse = await fetch('http://localhost:3001/api/send-setup-sms', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 phoneNumbers: [CONTACT_PREFIX + contactRest],
-                message: `Setup: ${shortLink}`
+                message: `Good Day! This is CacheFlow. We registered your account as our member. Please fill out this link to set up your credentials: ${shortLink}\n\nNote: This link is only available for one hour. Thank you for trusting us! If you need help, don't hesitate to contact us at cacheflow4102@gmail.com`
               })
             });
             
