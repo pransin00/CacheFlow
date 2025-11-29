@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from '../Modal/Modal';
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => {
+const ConfirmModal = ({ isOpen, onClose, onConfirm, details, title, confirmText, loading }) => {
   // Format name with first letter and asterisks for privacy (like receipt)
   const formatRecipientName = (name) => {
     if (!name) return '';
@@ -59,7 +59,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => {
           fontFamily: 'inherit',
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
         }}>Cancel</button>
-        <button type="button" onClick={onConfirm} style={{
+        <button type="button" onClick={onConfirm} disabled={loading} style={{
           background: '#1856c9',
           color: '#fff',
           border: 'none',
@@ -67,10 +67,11 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, details }) => {
           padding: '1vw 2vw',
           fontWeight: 600,
           fontSize: '1vw',
-          cursor: 'pointer',
+          cursor: loading ? 'not-allowed' : 'pointer',
           fontFamily: 'inherit',
           boxShadow: '0 2px 6px rgba(24,86,201,0.10)',
-        }}>Confirm</button>
+          opacity: loading ? 0.6 : 1,
+        }}>{loading ? 'Confirming...' : (confirmText || 'Confirm')}</button>
       </div>
     </div>
   </Modal>

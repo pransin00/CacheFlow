@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Modal from '../Modal/Modal';
 import { supabase } from '../../utils/supabaseClient';
@@ -87,6 +86,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [localOtpError, setLocalOtpError] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
   // use shared OTP hook
   const {
     send: otpSend,
@@ -274,34 +274,38 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
 
   // After user confirms, send OTP to sender and show OTP modal (using shared hook)
   const handleConfirm = async () => {
-    setShowConfirm(false);
+    setIsConfirming(true);
     setLocalOtpError('');
-    setLoading(true);
     try {
       const { data: userData, error: userErr } = await supabase
         .from('users')
         .select('contact_number')
         .eq('id', senderUserId)
         .single();
-      setLoading(false);
       if (!userData || userErr) {
         setError('No phone number found for sender.');
+        setShowConfirm(false); // Close confirm modal on error
         return;
       }
       const senderPhone = userData.contact_number;
       if (!senderPhone) {
         setError('No phone number found for sender.');
+        setShowConfirm(false); // Close confirm modal on error
         return;
       }
       const result = await otpSend([senderPhone]);
       if (result.ok) {
         setShowOtp(true);
+        setShowConfirm(false); // Close confirm modal only after OTP is ready
       } else {
         setError(result.message || 'Failed to send OTP.');
+        setShowConfirm(false); // Close confirm modal on error
       }
     } catch (err) {
-      setLoading(false);
       setError('Failed to connect to OTP server.');
+      setShowConfirm(false); // Close confirm modal on error
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -616,17 +620,17 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
         </div>
       </Modal>
       {/* Confirmation Modal */}
+      {showConfirm && (
       <ConfirmModal
-        isOpen={showConfirm && !pendingTransfer && !showSuccess && !showOtp && !showUnverifiedModal && !loading}
+        isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleConfirm}
-        details={{
-          accountNumber: pendingDetails?.accountNumber,
-          accountName: pendingDetails?.maskedName,
-          amount: pendingDetails?.amount,
-          remarks: pendingDetails?.remarks
-        }}
+        details={pendingDetails}
+        title="Confirm Transfer"
+        confirmText="Confirm"
+        loading={isConfirming}
       />
+      )}
       {/* Unverified Account Modal */}
       {showUnverifiedModal && !pendingTransfer && !showSuccess && !showConfirm && !showOtp && (
         <Modal isOpen={showUnverifiedModal} onClose={() => setShowUnverifiedModal(false)}>
@@ -700,17 +704,19 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
       {loading && !pendingTransfer && !showSuccess && (
         <ProcessingModal isOpen={true} />
       )}
-      <OtpModal
-        isOpen={showOtp && !pendingTransfer && !showSuccess && !showConfirm && !showUnverifiedModal && !loading}
-        onClose={() => setShowOtp(false)}
-        onVerify={handleOtpVerify}
-        onResend={handleResend}
-        resendDisabled={resendDisabled || (lockRemaining && lockRemaining > 0)}
-        timer={resendTimer}
-        error={localOtpError}
-        verifyDisabled={(lockRemaining && lockRemaining > 0)}
-        lockRemaining={lockRemaining}
-      />
+      {showOtp && (
+        <OtpModal
+          isOpen={showOtp && !pendingTransfer && !showSuccess && !showConfirm && !showUnverifiedModal && !loading}
+          onClose={() => setShowOtp(false)}
+          onVerify={handleOtpVerify}
+          onResend={handleResend}
+          resendDisabled={resendDisabled || (lockRemaining && lockRemaining > 0)}
+          timer={resendTimer}
+          error={localOtpError}
+          verifyDisabled={(lockRemaining && lockRemaining > 0)}
+          lockRemaining={lockRemaining}
+        />
+      )}
       
       <ProcessingModal isOpen={pendingTransfer} />
   <SuccessModal isOpen={showSuccess} transaction={successTx} onClose={() => {

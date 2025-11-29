@@ -270,7 +270,7 @@ const CheckBalance = () => {
             </form>
             
             <div className="back-to-login-cta">
-              <span onClick={() => navigate('/login')} style={{ cursor: 'pointer', color: '#0a3cff', textDecoration: 'underline' }}>
+              <span onClick={() => navigate('/login')} style={{ cursor: 'pointer', color: '#1976d2', textDecoration: 'underline' }}>
                 Back to Login
               </span>
             </div>
