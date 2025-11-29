@@ -67,8 +67,8 @@ const PinField = ({ value, onChange, label, error, showPin, toggleShowPin }) => 
   </div>
 );
 
-const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
-  const [mode, setMode] = useState('verify'); // verify, change
+const PinManageModal = ({ onClose, currentPin, onSuccess, adminUserId }) => {
+  const [mode, setMode] = useState(adminUserId ? 'change' : 'verify'); // verify, change - skip verify for admin
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -97,7 +97,7 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
     }
 
     try {
-      const user_id = localStorage.getItem('user_id');
+      const user_id = adminUserId || localStorage.getItem('user_id');
       const { error: updateError } = await supabase
         .from('users')
         .update({ pin: newPin })
@@ -105,9 +105,11 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
 
       if (updateError) throw updateError;
 
+      console.log('✅ PIN updated successfully in database for user:', user_id);
       onSuccess(newPin);
       onClose();
     } catch (err) {
+      console.error('Failed to update PIN:', err);
       setError('Failed to update PIN. Please try again.');
     }
   };
@@ -134,10 +136,10 @@ const PinManageModal = ({ onClose, currentPin, onSuccess }) => {
         boxSizing: 'border-box'
       }}>
         <h2 style={{ margin: '0 0 1.5rem 0', color: '#0a3cff' }}>
-          {mode === 'verify' ? 'Verify Current PIN' : 'Change PIN'}
+          {mode === 'verify' ? 'Verify Current PIN' : adminUserId ? 'Reset User PIN' : 'Change PIN'}
         </h2>
 
-        {mode === 'verify' ? (
+        {mode === 'verify' && !adminUserId ? (
           <PinField
             label="Current PIN"
             value={oldPin}

@@ -4,12 +4,16 @@ import { supabase } from '../../utils/supabaseClient';
 import AdminTransactionLogs from './AdminTransactionLogs/AdminTransactionLogs';
 import AdminUsers from './AdminUsers/AdminUsers';
 import AdminDashboard from './AdminDashboard/AdminDashboard';
+import ResetPassword from '../ResetPassword/ResetPassword';
+import PinManageModal from '../../Modals/PinManageModal/PinManageModal';
 import './Admin.css';
 
 export default function Admin() {
   const [authenticated, setAuthenticated] = useState(false);
   const [selected, setSelected] = useState('dashboard');
   const [showAdminProfile, setShowAdminProfile] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showPinManage, setShowPinManage] = useState(false);
   const [adminData, setAdminData] = useState(null);
   const navigate = useNavigate();
 
@@ -96,49 +100,18 @@ export default function Admin() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button 
-                onClick={async () => {
-                  const newPassword = prompt('Enter new password:');
-                  if (!newPassword) return;
-                  
-                  const { hashPassword } = await import('../../utils/hashUtils');
-                  const hashedPassword = await hashPassword(newPassword);
-                  
-                  const { error } = await supabase
-                    .from('users')
-                    .update({ password: hashedPassword })
-                    .eq('id', adminData.id);
-                  
-                  if (error) {
-                    alert('Failed to reset password');
-                  } else {
-                    alert('Password reset successfully');
-                    setShowAdminProfile(false);
-                  }
+                onClick={() => {
+                  setShowAdminProfile(false);
+                  setShowResetPassword(true);
                 }}
                 style={{ padding: '12px 16px', borderRadius: 6, background: '#ff9800', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
               >
                 Reset Password
               </button>
               <button 
-                onClick={async () => {
-                      const newPin = prompt('Enter new 4-digit PIN:');
-                      if (!newPin || !/^\d{4}$/.test(newPin)) {
-                        alert('PIN must be 4 digits');
-                        return;
-                      }
-                      
-                      const { hashPassword } = await import('../../utils/hashUtils');
-                      const hashedPin = await hashPassword(newPin);
-                      
-                      const { error } = await supabase
-                        .from('users')
-                        .update({ pin: hashedPin })
-                        .eq('id', adminData.id);                  if (error) {
-                    alert('Failed to reset PIN');
-                  } else {
-                    alert('PIN reset successfully');
-                    setShowAdminProfile(false);
-                  }
+                onClick={() => {
+                  setShowAdminProfile(false);
+                  setShowPinManage(true);
                 }}
                 style={{ padding: '12px 16px', borderRadius: 6, background: '#f44336', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
               >
@@ -151,6 +124,28 @@ export default function Admin() {
             </div>
           </div>
         </div>
+      )}
+
+      {showResetPassword && (
+        <ResetPassword 
+          onClose={() => setShowResetPassword(false)} 
+          onSuccess={() => {
+            setShowResetPassword(false);
+            alert('Password reset successfully');
+          }}
+        />
+      )}
+
+      {showPinManage && adminData && (
+        <PinManageModal 
+          onClose={() => setShowPinManage(false)}
+          currentPin={adminData.pin}
+          onSuccess={() => {
+            setShowPinManage(false);
+            alert('PIN reset successfully');
+            loadAdminData();
+          }}
+        />
       )}
     </div>
   );

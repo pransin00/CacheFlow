@@ -6,15 +6,15 @@ import Modal from "../../Modals/Modal/Modal";
 import OtpModal from "../../Modals/OtpModal/OtpModal";
 import "./ResetPassword.css";
 
-export default function ResetPassword({ onClose, onSuccess }) {
+export default function ResetPassword({ onClose, onSuccess, adminUserId }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // OTP step state
-  const [step, setStep] = useState("verify"); // 'verify' | 'otp' | 'set'
+  // OTP step state - skip OTP if adminUserId is provided
+  const [step, setStep] = useState(adminUserId ? "set" : "verify"); // 'verify' | 'otp' | 'set'
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpError, setOtpError] = useState("");
 
@@ -153,11 +153,13 @@ export default function ResetPassword({ onClose, onSuccess }) {
     setLoading(true);
     try {
       const hashedPassword = await hashPassword(next);
+      const targetUserId = adminUserId || userId;
       const { error: updateErr } = await supabase
         .from("users")
         .update({ password: hashedPassword })
-        .eq("id", userId);
+        .eq("id", targetUserId);
       if (updateErr) throw updateErr;
+      console.log('✅ Password updated successfully in database for user:', targetUserId);
       onSuccess && onSuccess(next);
       onClose && onClose();
     } catch (err) {
@@ -170,7 +172,8 @@ export default function ResetPassword({ onClose, onSuccess }) {
 
   return (
     <>
-      <Modal isOpen={step === "verify"} onClose={onClose}>
+      {!adminUserId && (
+        <Modal isOpen={step === "verify"} onClose={onClose}>
         <form onSubmit={verifyCurrent} className="rp-form">
           <h3 className="rp-title">Verify current password</h3>
           <div className="rp-group">
@@ -221,7 +224,9 @@ export default function ResetPassword({ onClose, onSuccess }) {
           </div>
         </form>
       </Modal>
+      )}
 
+      {!adminUserId && (
       <OtpModal
         isOpen={showOtpModal && step === "otp"}
         onClose={() => {
@@ -235,6 +240,7 @@ export default function ResetPassword({ onClose, onSuccess }) {
         resendDisabled={resendDisabled}
         timer={resendTimer}
       />
+      )}
 
       <Modal isOpen={step === "set"} onClose={onClose}>
         <form onSubmit={handleSetPassword} className="rp-form">
@@ -341,15 +347,26 @@ export default function ResetPassword({ onClose, onSuccess }) {
           </div>
           {error && <div className="rp-error">{error}</div>}
           <div className="rp-actions">
-            <button
-              type="button"
-              onClick={() => {
-                setStep("verify");
-              }}
-              className="rp-btn rp-cancel"
-            >
-              Back
-            </button>
+            {!adminUserId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("verify");
+                }}
+                className="rp-btn rp-cancel"
+              >
+                Back
+              </button>
+            )}
+            {adminUserId && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rp-btn rp-cancel"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               disabled={loading}

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
+import ResetPassword from '../../ResetPassword/ResetPassword';
+import PinManageModal from '../../../Modals/PinManageModal/PinManageModal';
 import './AdminUsers.css';
 
 export default function AdminUsers() {
@@ -56,9 +58,21 @@ export default function AdminUsers() {
     const [pendingEdit, setPendingEdit] = useState(null); // {userId, accountNumber}
     const [showSetPass, setShowSetPass] = useState(false);
     const [currentPassInput, setCurrentPassInput] = useState('');
+    // modal states for password/PIN reset
+    const [showResetPassword, setShowResetPassword] = useState(false);
+    const [showPinManage, setShowPinManage] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState(null);
     const [newPassInput, setNewPassInput] = useState('');
     const [confirmNewPassInput, setConfirmNewPassInput] = useState('');
     const [passChangeLoading, setPassChangeLoading] = useState(false);
+    // profile view PIN verification
+    const [showProfilePinPrompt, setShowProfilePinPrompt] = useState(false);
+    const [profilePinInput, setProfilePinInput] = useState('');
+    const [profilePinError, setProfilePinError] = useState('');
+    const [pendingProfileData, setPendingProfileData] = useState(null);
+    const [showProfilePin, setShowProfilePin] = useState(false);
+    // toast notifications
+    const [credentialToast, setCredentialToast] = useState({ visible: false, message: '' });
 
   useEffect(() => {
     loadUsers();
@@ -269,7 +283,7 @@ export default function AdminUsers() {
     }
   }
 
-  // View user profile
+  // View user profile - requires PIN verification
   async function handleViewProfile(userId, accountNumber) {
     try {
       setLoading(true);
@@ -285,16 +299,53 @@ export default function AdminUsers() {
         .eq('user_id', userId)
         .single();
       
-      setProfileData({
+      // Store profile data and show PIN prompt
+      setPendingProfileData({
         ...userData,
         account_number: accountData?.account_number,
         balance: accountData?.balance || 0
       });
-      setShowUserProfile(true);
+      setProfilePinError('');
+      setProfilePinInput('');
+      setShowProfilePinPrompt(true);
     } catch (err) {
       setError('Failed to load user profile');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Verify PIN and show profile
+  async function verifyProfilePin() {
+    try {
+      const user_id = localStorage.getItem('user_id');
+      if (!user_id) {
+        setProfilePinError('Session expired. Please login again.');
+        return;
+      }
+      
+      const { data: adminData, error: adminError } = await supabase
+        .from('users')
+        .select('pin')
+        .eq('id', user_id)
+        .single();
+      
+      if (adminError || !adminData) {
+        setProfilePinError('Failed to verify. Please try again.');
+        return;
+      }
+      
+      if (profilePinInput === adminData.pin) {
+        setShowProfilePinPrompt(false);
+        setShowProfilePin(false);
+        setProfileData(pendingProfileData);
+        setPendingProfileData(null);
+        setShowUserProfile(true);
+      } else {
+        setProfilePinError('Incorrect admin PIN');
+      }
+    } catch (err) {
+      setProfilePinError('Verification failed');
     }
   }
 
@@ -840,6 +891,58 @@ export default function AdminUsers() {
 
       {showToast && <div className="au-toast">{successMsg}</div>}
 
+      {/* PIN prompt for viewing profile */}
+      {showProfilePinPrompt && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: 400 }}>
+            <h3>Admin Verification</h3>
+            <p style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Enter your admin PIN to view user profile</p>
+            <div style={{ marginBottom: 16 }}>
+              <label className="au-label">Admin PIN</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showProfilePin ? 'text' : 'password'}
+                  className="au-input"
+                  value={profilePinInput}
+                  onChange={e => setProfilePinInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') verifyProfilePin(); }}
+                  autoFocus
+                  placeholder="Enter 4-digit PIN"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowProfilePin(!showProfilePin)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}
+                >
+                  {showProfilePin ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+              {profilePinError && <div style={{ color: '#d32f2f', fontSize: 12, marginTop: 4 }}>{profilePinError}</div>}
+            </div>
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                onClick={() => { 
+                  setShowProfilePinPrompt(false); 
+                  setShowProfilePin(false);
+                  setPendingProfileData(null);
+                }} 
+                className="modal-btn modal-cancel"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={verifyProfilePin} 
+                className="modal-btn modal-primary"
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showUserProfile && profileData && (
         <div className="modal-overlay" onClick={() => setShowUserProfile(false)}>
           <div className="modal-card" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
@@ -847,8 +950,8 @@ export default function AdminUsers() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 8, fontSize: 14 }}>
                 <strong>User ID:</strong><span>{profileData.id}</span>
+                <strong>Full Name:</strong><span>{`${profileData.firstname || ''} ${profileData.middlename || ''} ${profileData.lastname || ''}`.trim() || 'N/A'}</span>
                 <strong>Username:</strong><span>{profileData.username || 'N/A'}</span>
-                <strong>Full Name:</strong><span>{`${profileData.first_name || ''} ${profileData.middle_name || ''} ${profileData.last_name || ''}`.trim() || 'N/A'}</span>
                 <strong>Contact:</strong><span>{profileData.contact_number || 'N/A'}</span>
                 <strong>Account Number:</strong><span>{profileData.account_number || 'N/A'}</span>
                 <strong>Balance:</strong><span>₱{profileData.balance?.toLocaleString() || '0.00'}</span>
@@ -859,51 +962,20 @@ export default function AdminUsers() {
                 <h4 style={{ marginBottom: 12, fontSize: 15 }}>Reset Credentials</h4>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button 
-                    onClick={async () => {
-                      const newPassword = prompt('Enter new password for user:');
-                      if (!newPassword) return;
-                      
-                      const { hashPassword } = await import('../../../utils/hashUtils');
-                      const hashedPassword = await hashPassword(newPassword);
-                      
-                      const { error } = await supabase
-                        .from('users')
-                        .update({ password: hashedPassword })
-                        .eq('id', profileData.id);
-                      
-                      if (error) {
-                        alert('Failed to reset password');
-                      } else {
-                        alert('Password reset successfully');
-                        setShowUserProfile(false);
-                      }
+                    onClick={() => {
+                      setSelectedUserId(profileData.id);
+                      setShowResetPassword(true);
+                      setShowUserProfile(false);
                     }}
                     style={{ padding: '8px 12px', borderRadius: 6, background: '#ff9800', color: '#fff', border: 'none', cursor: 'pointer' }}
                   >
                     Reset Password
                   </button>
                   <button 
-                    onClick={async () => {
-                      const newPin = prompt('Enter new 4-digit PIN for user:');
-                      if (!newPin || !/^\d{4}$/.test(newPin)) {
-                        alert('PIN must be 4 digits');
-                        return;
-                      }
-                      
-                      const { hashPassword } = await import('../../../utils/hashUtils');
-                      const hashedPin = await hashPassword(newPin);
-                      
-                      const { error } = await supabase
-                        .from('users')
-                        .update({ pin: hashedPin })
-                        .eq('id', profileData.id);
-                      
-                      if (error) {
-                        alert('Failed to reset PIN');
-                      } else {
-                        alert('PIN reset successfully');
-                        setShowUserProfile(false);
-                      }
+                    onClick={() => {
+                      setSelectedUserId(profileData.id);
+                      setShowPinManage(true);
+                      setShowUserProfile(false);
                     }}
                     style={{ padding: '8px 12px', borderRadius: 6, background: '#f44336', color: '#fff', border: 'none', cursor: 'pointer' }}
                   >
@@ -917,6 +989,45 @@ export default function AdminUsers() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Reset Password Modal */}
+      {showResetPassword && (
+        <ResetPassword
+          onClose={() => {
+            setShowResetPassword(false);
+            setSelectedUserId(null);
+          }}
+          onSuccess={() => {
+            setShowResetPassword(false);
+            setSelectedUserId(null);
+            setCredentialToast({ visible: true, message: 'User password reset successfully!' });
+            setTimeout(() => setCredentialToast({ visible: false, message: '' }), 3500);
+          }}
+          adminUserId={selectedUserId}
+        />
+      )}
+
+      {/* PIN Management Modal */}
+      {showPinManage && (
+        <PinManageModal
+          onClose={() => {
+            setShowPinManage(false);
+            setSelectedUserId(null);
+          }}
+          onSuccess={() => {
+            setShowPinManage(false);
+            setSelectedUserId(null);
+            setCredentialToast({ visible: true, message: 'User PIN reset successfully!' });
+            setTimeout(() => setCredentialToast({ visible: false, message: '' }), 3500);
+          }}
+          adminUserId={selectedUserId}
+        />
+      )}
+
+      {/* Credential Toast */}
+      {credentialToast.visible && (
+        <div className="au-toast" style={{ bottom: '20px' }}>{credentialToast.message}</div>
       )}
     </div>
   );

@@ -8,6 +8,7 @@ export default function AdminTransactionLogs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [refSearch, setRefSearch] = useState('');
   // superpassword for viewing details - uses admin PIN from localStorage
   const [superPassHash, setSuperPassHash] = useState(() => {
     // Get the admin PIN (stored during login)
@@ -27,33 +28,72 @@ export default function AdminTransactionLogs() {
 
   useEffect(() => {
     // load all logs initially
-    loadLogs();
+    loadLogs('', '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function buildQuery(base, dateFilter) {
-    let query = base.select('id, date').order('date', { ascending: false }).limit(200);
+  async function buildQuery(base, dateFilter, refFilter) {
     const df = dateFilter !== undefined ? dateFilter : filterDate;
+    const rf = refFilter !== undefined ? refFilter : refSearch;
+    
+    // Filter by reference number if provided
+    if (rf && rf.trim()) {
+      const searchTerm = rf.trim().toLowerCase();
+      // Fetch all and filter client-side for UUID partial match
+      let query = base.select('id, date').order('date', { ascending: false }).limit(1000);
+      
+      if (df) {
+        const from = new Date(df + 'T00:00:00');
+        const to = new Date(df + 'T23:59:59.999');
+        const fromIso = new Date(from.getTime() - from.getTimezoneOffset() * 60000).toISOString();
+        const toIso = new Date(to.getTime() - to.getTimezoneOffset() * 60000).toISOString();
+        query = query.gte('date', fromIso).lte('date', toIso);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      // Filter client-side by reference number
+      const filtered = (data || []).filter(row => 
+        row.id && row.id.toLowerCase().includes(searchTerm)
+      );
+      
+      return { data: filtered.slice(0, 200), error: null };
+    }
+    
+    // Normal query without reference filter
+    let query = base.select('id, date').order('date', { ascending: false }).limit(200);
+    
+    // Filter by date if provided
     if (df) {
-      // filter for the whole day (normalize to UTC like Transactions.jsx)
       const from = new Date(df + 'T00:00:00');
       const to = new Date(df + 'T23:59:59.999');
       const fromIso = new Date(from.getTime() - from.getTimezoneOffset() * 60000).toISOString();
       const toIso = new Date(to.getTime() - to.getTimezoneOffset() * 60000).toISOString();
       query = query.gte('date', fromIso).lte('date', toIso);
     }
+    
     return query;
   }
 
-  async function loadLogs(dateFilter) {
+  async function loadLogs(dateFilter, refFilter) {
     setLoading(true);
     setError('');
     try {
       const base = supabase.from('transactions');
-      const query = await buildQuery(base, dateFilter);
-      const { data, error } = await query;
-      if (error) throw error;
-      setLogs(data || []);
+      const result = await buildQuery(base, dateFilter, refFilter);
+      
+      // Handle both query objects and direct data results
+      if (result.data !== undefined) {
+        // Direct data result from client-side filtering
+        if (result.error) throw result.error;
+        setLogs(result.data || []);
+      } else {
+        // Query object - execute it
+        const { data, error } = await result;
+        if (error) throw error;
+        setLogs(data || []);
+      }
     } catch (err) {
       console.error('Failed to load transaction logs', err.message || err);
       setError('Failed to load logs');
@@ -175,14 +215,27 @@ export default function AdminTransactionLogs() {
 
   function handleClear() {
     setFilterDate('');
-    loadLogs();
+    setRefSearch('');
+    loadLogs('', '');
   }
 
   return (
     <div className="admin-trans-root">
       <form onSubmit={handleFilter} className="trans-filter">
+        <label className="trans-filter-label">Reference Number</label>
+        <input 
+          className="trans-filter-input" 
+          type="text" 
+          value={refSearch} 
+          onChange={async (e) => { 
+            const v = e.target.value; 
+            setRefSearch(v); 
+            await loadLogs(filterDate, v); 
+          }} 
+          placeholder="Search by reference number"
+        />
         <label className="trans-filter-label">Date</label>
-        <input className="trans-filter-input" type="date" value={filterDate} onChange={async (e) => { const v = e.target.value; setFilterDate(v); await loadLogs(v); }} />
+        <input className="trans-filter-input" type="date" value={filterDate} onChange={async (e) => { const v = e.target.value; setFilterDate(v); await loadLogs(v, refSearch); }} />
         <button type="button" onClick={handleClear} className="trans-filter-clear">Clear</button>
       </form>
 
