@@ -51,7 +51,7 @@
 
 .balance-nav-item.active {
   background: #e3f0ff;
-  color: #0a3cff;
+  color: #b6c5ff;
 }
 
 .balance-nav-item:hover:not(.active) {
@@ -195,7 +195,7 @@
 
 .check-balance-left {
   flex: 1;
-  background: linear-gradient(135deg, #0a3cff 0%, #4d7cff 100%);
+  background: linear-gradient(135deg, #a1b3fa 0%, #a1b3fa 100%);
   padding: 60px 40px;
   display: flex;
   flex-direction: column;
@@ -265,7 +265,7 @@
 
 .input:focus {
   outline: none;
-  border-color: #0a3cff;
+  border-color: #a1b3fa;
 }
 
 .input-icon {
@@ -300,7 +300,7 @@
 .btn-submit {
   width: 100%;
   padding: 14px;
-  background: #0a3cff;
+  background: #859af2;
   color: white;
   border: none;
   border-radius: 8px;
@@ -312,7 +312,7 @@
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: #0830cc;
+  background: #c3cfff;
 }
 
 .btn-submit:disabled {
