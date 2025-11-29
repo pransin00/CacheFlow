@@ -57,8 +57,10 @@ app.post('/api/send-otp', async (req, res) => {
     console.log('SMS Gateway API response data:', data);
 
     if (response.ok) {
+      console.log('✅ OTP SMS sent successfully');
       res.status(response.status).json({ ...data, otp });
     } else {
+      console.error('❌ SMS Gateway API returned error:', data);
       res.status(response.status).json(data);
     }
   } catch (err) {
@@ -113,8 +115,10 @@ app.post('/api/send-setup-sms', async (req, res) => {
     console.log('SMS Gateway API response data:', data);
 
     if (response.ok) {
+      console.log('✅ Setup SMS sent successfully');
       res.status(response.status).json(data);
     } else {
+      console.error('❌ SMS Gateway API returned error:', data);
       res.status(response.status).json(data);
     }
   } catch (err) {

@@ -51,7 +51,7 @@
 
 .balance-nav-item.active {
   background: #e3f0ff;
-  color: #1976d2;
+  color: #0a3cff;
 }
 
 .balance-nav-item:hover:not(.active) {
@@ -195,7 +195,7 @@
 
 .check-balance-left {
   flex: 1;
-  background: linear-gradient(135deg, #1976d2 0%, #0a3cff 100%);
+  background: linear-gradient(135deg, #0a3cff 0%, #4d7cff 100%);
   padding: 60px 40px;
   display: flex;
   flex-direction: column;
@@ -265,7 +265,7 @@
 
 .input:focus {
   outline: none;
-  border-color: #1976d2;
+  border-color: #0a3cff;
 }
 
 .input-icon {
