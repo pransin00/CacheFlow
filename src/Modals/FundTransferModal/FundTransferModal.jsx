@@ -255,7 +255,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     // If recipient doesn't exist (or lookup errored), show Unregistered modal now
     if (!recipientExists) {
       setUnregisteredDetails({
-        accountNumber: sanitized,
+        accountNumber: sanitizedAcc,
         amount: transferAmount,
         remarks,
       });
@@ -264,7 +264,7 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     }
 
     setPendingDetails({
-      accountNumber: accountNumber.replace(/\s/g, ''),
+      accountNumber: sanitizedAcc,
       maskedName,
       amount: transferAmount,
       remarks,

@@ -26,6 +26,7 @@ export default function AdminUsers() {
     const [showConfirm, setShowConfirm] = useState(false);
     const [previewAcctNumber, setPreviewAcctNumber] = useState('');
     const [showToast, setShowToast] = useState(false);
+    const [addError, setAddError] = useState('');
     // edit user modal state
     const [editShow, setEditShow] = useState(false);
     const [editUserId, setEditUserId] = useState(null);
@@ -38,6 +39,7 @@ export default function AdminUsers() {
     const [editPassword, setEditPassword] = useState('');
     const [editPin, setEditPin] = useState('');
     const [editLoading, setEditLoading] = useState(false);
+    const [editError, setEditError] = useState('');
     // deletion states
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDeletePassPrompt, setShowDeletePassPrompt] = useState(false);
@@ -122,6 +124,7 @@ export default function AdminUsers() {
 
   async function openEdit(userId, accountNumber) {
     setError('');
+    setEditError('');
     setEditLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('username, firstname, middlename, lastname, contact_number, pin').eq('id', userId).maybeSingle();
@@ -152,9 +155,9 @@ export default function AdminUsers() {
 
   async function performUpdate() {
     if (!editUserId) return;
-    setError('');
+    setEditError('');
     if (!/^[0-9]{9}$/.test(editContactRest)) {
-      setError('Contact must be 9 digits (without the +639 prefix)');
+      setEditError('Contact must be 9 digits (without the +639 prefix)');
       return;
     }
     setEditLoading(true);
@@ -177,7 +180,7 @@ export default function AdminUsers() {
       setTimeout(() => { setShowToast(false); setSuccessMsg(''); }, 3000);
     } catch (err) {
       console.error('Failed to update user', err);
-      setError('Failed to update user: ' + (err.message || err));
+      setEditError('Failed to update user: ' + (err.message || err));
     } finally {
       setEditLoading(false);
     }
@@ -186,6 +189,7 @@ export default function AdminUsers() {
   async function performDelete() {
     if (!editUserId) return;
     setError('');
+    setEditError('');
     setDeleteLoading(true);
     try {
       const { error: acctErr } = await supabase.from('accounts').delete().eq('user_id', editUserId);
@@ -200,7 +204,7 @@ export default function AdminUsers() {
       setTimeout(() => { setShowToast(false); setSuccessMsg(''); }, 3000);
     } catch (err) {
       console.error('Failed to delete user/account', err);
-      setError('Failed to delete user/account: ' + (err.message || err));
+      setEditError('Failed to delete user/account: ' + (err.message || err));
     } finally {
       setDeleteLoading(false);
       setDeletePassInput('');
@@ -351,9 +355,10 @@ export default function AdminUsers() {
 
   async function openPreview() {
     setError('');
+    setAddError('');
     setSuccessMsg('');
     if (!firstName.trim() || !lastName.trim() || !/^[0-9]{9}$/.test(contactRest)) {
-      setError('Please provide first name, last name and a 9-digit contact number (without the +639 prefix).');
+      setAddError('Please provide first name, last name and a 9-digit contact number (without the +639 prefix).');
       return;
     }
     const acct = generateAccountNumber(8);
@@ -364,6 +369,7 @@ export default function AdminUsers() {
 
   async function performCreate(initialAcct) {
     setError('');
+    setAddError('');
     setAdding(true);
     setShowConfirm(false);
     try {
@@ -494,6 +500,7 @@ export default function AdminUsers() {
     } catch (err) {
       console.error('Failed to add account', err);
       setError('Failed to add account: ' + (err.message || err));
+      setAddError('Failed to add account: ' + (err.message || err));
     } finally {
       setAdding(false);
     }
@@ -622,86 +629,83 @@ export default function AdminUsers() {
       )}
 
       {showAdd && (
-        <div>
-          <div style={{ position: 'fixed', left: 12, top: 12, background: 'rgba(10,60,255,0.95)', color: '#fff', padding: '6px 10px', borderRadius: 6, zIndex: 99999 }}>Add modal open</div>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99990 }}>
-          <form
-            onSubmit={e => { e.preventDefault(); openPreview(); }}
-            style={{ background: '#fff', padding: 24, borderRadius: 10, width: 'min(640px, 92%)' }}>
-            <h3 style={{ marginTop: 0 }}>Create user & account</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>First name</label>
-                <input className="au-input" value={firstName} onChange={e => setFirstName(e.target.value)} />
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h3>Add New User</h3>
+            {addError && <p className="error-message" style={{ color: '#d32f2f' }}>{addError}</p>}
+            <div className="form-group">
+              <label>First Name</label>
+              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Middle Name/Initial</label>
+              <input type="text" value={middleName} onChange={e => setMiddleName(e.target.value.replace(/[^a-zA-Z]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Last Name</label>
+              <input type="text" value={lastName} onChange={e => setLastName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Contact Number</label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f1f5f9', display: 'inline-flex', alignItems: 'center' }}>{CONTACT_PREFIX}</div>
+                <input type="text" value={contactRest} onChange={e => setContactRest(e.target.value.replace(/\D/g, '').slice(0,9))} />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Middle name</label>
-                <input className="au-input" value={middleName} onChange={e => setMiddleName(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Last name</label>
-                <input className="au-input" value={lastName} onChange={e => setLastName(e.target.value)} />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: '#555', marginBottom: 6 }}>Contact (9 digits)</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f1f5f9', display: 'inline-flex', alignItems: 'center' }}>{CONTACT_PREFIX}</div>
-                  <input className="au-input" value={contactRest} onChange={e => setContactRest(e.target.value.replace(/\D/g, '').slice(0,9))} />
-                </div>
-                <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>User will receive an SMS with a setup link to create their password and PIN</div>
-              </div>
+              <small style={{ color: '#666' }}>User will receive an SMS with a setup link to create their password and PIN</small>
             </div>
             {error && <div style={{ color: '#d32f2f', marginTop: 10 }}>{error}</div>}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button type="button" onClick={() => setShowAdd(false)} className="au-btn au-btn-cancel">Cancel</button>
               <button type="submit" disabled={adding} className="au-btn au-btn-primary">{adding ? 'Adding...' : 'Create'}</button>
             </div>
-          </form>
           </div>
         </div>
       )}
 
       {/* edit modal */}
       {editShow && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Edit user</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label className="au-label">Username</label>
-                <input className="au-input" value={editUsername} onChange={e => setEditUsername(e.target.value)} />
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h3>Edit User</h3>
+            {editError && <p className="error-message" style={{ color: '#d32f2f' }}>{editError}</p>}
+            <div className="form-group">
+              <label>User ID</label>
+              <input type="text" value={editUserId} disabled />
+            </div>
+            <div className="form-group">
+              <label>Account Number</label>
+              <input type="text" value={editAccountNumber} disabled />
+            </div>
+            <div className="form-group">
+              <label>Username</label>
+              <input type="text" value={editUsername} onChange={e => setEditUsername(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>First Name</label>
+              <input type="text" value={editFirstName} onChange={e => setEditFirstName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Middle Name/Initial</label>
+              <input type="text" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value.replace(/[^a-zA-Z]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Last Name</label>
+              <input type="text" value={editLastName} onChange={e => setEditLastName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
+            </div>
+            <div className="form-group">
+              <label>Contact Number</label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ padding: '8px 10px', background: '#eee', border: '1px solid #ccc', borderRadius: '4px 0 0 4px' }}>{CONTACT_PREFIX}</span>
+                <input type="text" value={editContactRest} onChange={e => setEditContactRest(e.target.value.replace(/\D/g, '').slice(0,9))} />
               </div>
-              <div>
-                <label className="au-label">Account number</label>
-                <input className="au-input" value={editAccountNumber} onChange={e => setEditAccountNumber(e.target.value)} />
-              </div>
-              <div>
-                <label className="au-label">First name</label>
-                <input className="au-input" value={editFirstName} onChange={e => setEditFirstName(e.target.value)} />
-              </div>
-              <div>
-                <label className="au-label">Middle name</label>
-                <input className="au-input" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value)} />
-              </div>
-              <div>
-                <label className="au-label">Last name</label>
-                <input className="au-input" value={editLastName} onChange={e => setEditLastName(e.target.value)} />
-              </div>
-              <div>
-                <label className="au-label">Contact (9 digits)</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f1f5f9', display: 'inline-flex', alignItems: 'center' }}>{CONTACT_PREFIX}</div>
-                  <input className="au-input" value={editContactRest} onChange={e => setEditContactRest(e.target.value.replace(/\D/g, '').slice(0,9))} />
-                </div>
-              </div>
-              <div>
-                <label className="au-label">Password</label>
-                <input className="au-input" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
-              </div>
-              <div>
-                <label className="au-label">PIN</label>
-                <input className="au-input" value={editPin} onChange={e => setEditPin(e.target.value)} />
-              </div>
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>PIN</label>
+              <input type="text" value={editPin} onChange={e => setEditPin(e.target.value)} />
             </div>
             {error && <div className="modal-error">{error}</div>}
             <div className="modal-actions">
@@ -722,24 +726,18 @@ export default function AdminUsers() {
 
       {/* Delete confirmation with password prompt */}
       {showDeletePassPrompt && (
-        <div className="modal-overlay" style={{ zIndex: 100000 }}>
-          <div className="modal-card">
-            <h3 style={{ color: '#d32f2f' }}>Confirm Delete User</h3>
-            <p>This action will permanently delete the user and their account. This cannot be undone.</p>
-            <p><strong>User:</strong> {editUsername}</p>
-            <p><strong>Account:</strong> {editAccountNumber}</p>
-            <div style={{ marginTop: 16 }}>
-              <label className="au-label">Enter Superadmin Password</label>
-              <input 
-                className="au-input" 
-                type="password"
-                value={deletePassInput} 
-                onChange={e => { setDeletePassInput(e.target.value); setDeletePassError(''); }}
-                placeholder="Enter superadmin password"
-              />
-            </div>
-            {deletePassError && <div className="modal-error">{deletePassError}</div>}
-            <div className="modal-actions" style={{ marginTop: 16 }}>
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h3>Confirm Deletion</h3>
+            {deletePassError && <p className="error-message">{deletePassError}</p>}
+            <p>This is a destructive action. To delete user <strong>{editUsername}</strong>, please enter your admin password.</p>
+            <input
+              type="password"
+              value={deletePassInput}
+              onChange={e => { setDeletePassInput(e.target.value); setDeletePassError(''); }}
+              placeholder="Enter superadmin password"
+            />
+            <div className="modal-actions">
               <button 
                 type="button" 
                 onClick={() => { 
@@ -874,10 +872,16 @@ export default function AdminUsers() {
       )}
 
       {showConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Confirm create</h3>
-            <div>Account number preview: <strong>{previewAcctNumber}</strong></div>
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h3>Confirm New User</h3>
+            {addError && <p className="error-message" style={{ color: '#d32f2f' }}>{addError}</p>}
+            <p>A new user will be created with the following details:</p>
+            <ul>
+              <li><strong>Name:</strong> {`${firstName} ${middleName} ${lastName}`}</li>
+              <li><strong>Contact:</strong> {CONTACT_PREFIX + contactRest}</li>
+              <li><strong>Account Number:</strong> {previewAcctNumber}</li>
+            </ul>
             <div className="modal-actions">
               <button type="button" onClick={() => { 
                 setShowConfirm(false); 
