@@ -164,6 +164,12 @@ const FundTransferModal = ({ isOpen, onClose, onTransferSuccess }) => {
     if (!sanitizedAcc) {
       setAccountError('Account number is required');
       hasError = true;
+    } else if (sanitizedAcc.length < 8) {
+      setAccountError('Account number is incomplete. It must be 8 digits.');
+      hasError = true;
+    } else if (sanitizedAcc.length > 8) {
+      setAccountError('Account number must be exactly 8 digits.');
+      hasError = true;
     }
     if (amount === null || amount === undefined || amount.toString().trim() === '') {
       setAmountError('Amount is required');

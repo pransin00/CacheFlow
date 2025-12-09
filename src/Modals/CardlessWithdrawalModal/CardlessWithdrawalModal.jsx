@@ -32,6 +32,8 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [withdrawalAmount, setWithdrawalAmount] = useState(null);
   const [transactionId, setTransactionId] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Locations that support cardless withdrawal
   const cardlessLocations = locations.filter(l => l.hasCardless);
@@ -418,7 +420,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
           code: withdrawalCode,
           expires_at: expiresAt,
           remaining_balance: accBalance,
-          description: `Cardless Withdrawal (requested ₱${requestedAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) at ${selectedLocation?.name || atmName}`,
+          description: `Cardless Withdrawal (requested
         }];
 
         // Try inserting full payload; if DB rejects unknown columns, retry reduced payload.
@@ -473,7 +475,7 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     */
   };
 
-  const handleCancelWithdrawal = async () => {
+  const handleClaimWithdrawal = async () => {
     // Mark transaction as Successful and deduct balance (user claimed the withdrawal)
     if (transactionId && withdrawalAmount) {
       try {
@@ -513,8 +515,9 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
 
         window.dispatchEvent(new CustomEvent('transactions:refresh'));
         
-        // Refresh the page to update balance
-        window.location.reload();
+        // Show success message
+        setSuccessMessage('Withdrawal claimed successfully!');
+        setShowSuccessModal(true);
       } catch (err) {
         console.error('Failed to update transaction status to Successful:', err);
       }
@@ -526,6 +529,37 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
     setTransactionId(null);
     setWithdrawalAmount(null);
     handleClose();
+  };
+
+  const handleCancelWithdrawal = async () => {
+    if (transactionId) {
+      try {
+        // Update transaction status to "Cancelled"
+        await supabase
+          .from('transactions')
+          .update({ transaction_status: 'Cancelled' })
+          .eq('id', transactionId);
+
+        window.dispatchEvent(new CustomEvent('transactions:refresh'));
+        
+        // Show cancellation message
+        setSuccessMessage('Withdrawal cancelled successfully.');
+        setShowSuccessModal(true);
+      } catch (err) {
+        console.error('Failed to cancel transaction:', err);
+      }
+    }
+    // Clear localStorage and reset state
+    localStorage.removeItem('cf_active_withdrawal');
+    setGeneratedCode(null);
+    setTimeRemaining(null);
+    setTransactionId(null);
+    setWithdrawalAmount(null);
+    setAmount('');
+    setPin('');
+    setError('');
+    setAmountError('');
+    setPinError('');
   };
 
   const handleClose = () => {
@@ -790,6 +824,20 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                 onClick={handleCancelWithdrawal}
                 style={{
                   padding: '0.5rem 1rem',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  background: '#fff',
+                  color: '#333',
+                  cursor: 'pointer',
+                  fontWeight: 500
+                }}
+              >
+                Cancel Withdrawal
+              </button>
+              <button
+                onClick={handleClaimWithdrawal}
+                style={{
+                  padding: '0.5rem 1rem',
                   border: 'none',
                   borderRadius: '4px',
                   background: '#4CAF50',
@@ -808,15 +856,71 @@ const CardlessWithdrawalModal = ({ onClose, atmName, onGenerate }) => {
                   borderRadius: '4px',
                   background: '#0a3cff',
                   color: 'white',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontWeight: 500
                 }}
               >
-                Close
+                Exit
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Success Message Modal */}
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          }}>
+            <div style={{
+              fontSize: '3rem',
+              marginBottom: '1rem'
+            }}>✓</div>
+            <h3 style={{ marginBottom: '1rem', color: '#4CAF50' }}>Success</h3>
+            <p style={{ marginBottom: '1.5rem', color: '#666' }}>{successMessage}</p>
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                if (successMessage.includes('claimed')) {
+                  window.location.reload();
+                } else {
+                  // Just close the modal for cancellation
+                  setShowSuccessModal(false);
+                }
+              }}
+              style={{
+                padding: '0.5rem 1.5rem',
+                border: 'none',
+                borderRadius: '6px',
+                background: '#4CAF50',
+                color: 'white',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '1rem'
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
